@@ -53,8 +53,15 @@ def test_policy(env, policy, episodes, **kwargs):
         
     # shut the window
     pygame.quit()
+    
+    # package results
+    
+    results = {
+        "reward": episode_reward,
+        "timestep": episode_timestep
+        }
                 
-    return episode_reward, episode_timestep  
+    return results
 
 
 # TESTING -------------------------------------------------------------------
@@ -79,14 +86,14 @@ if __name__ == "__main__":
     env = gym.make("CartPole-v1")    
     
     # instantiate the data collection
-    reward, timesteps = test_policy(
+    results = test_policy(
         env=env, 
         policy=test_agent(),
         episodes=10,
         render=False
         )
     
-    print(reward)
+    print(results["reward"])
     
     
     
