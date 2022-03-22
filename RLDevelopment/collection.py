@@ -71,7 +71,7 @@ if __name__ == "__main__":
     import gym
     
     # create a test policy
-    class test_policy:
+    class test_agent:
         
         def __init__(self):
             pass
@@ -88,7 +88,7 @@ if __name__ == "__main__":
     # instantiate the data collection
     data = collect_sample(
         env=env, 
-        policy=test_policy(),
+        policy=test_agent(),
         sample_size=1000,
         max_timestep=2,
         filepath="./RLDevelopment/",

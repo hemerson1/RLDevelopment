@@ -91,6 +91,9 @@ def get_batch(memory, batch_size, device="cpu"):
         }
     
     return batch
+
+
+# TESTING -------------------------------------------------------------------
     
     
 if __name__ == "__main__":
