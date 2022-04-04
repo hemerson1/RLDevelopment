@@ -11,6 +11,6 @@ import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
 # Import packages
-from RLDevelopment.RLDevelopment.collection import collect_sample
-from RLDevelopment.RLDevelopment.evaluation import test_policy
-from RLDevelopment.RLDevelopment.processing import clean_sample, get_batch
+from .collection import collect_sample
+from .evaluation import test_policy
+from .processing import clean_sample, get_batch
