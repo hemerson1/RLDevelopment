@@ -23,8 +23,8 @@ def test_policy(env, policy, episodes, **kwargs):
     for ep in range(episodes): 
         
         # reset the environmental parameters
-        state, done = env.reset(), False
-        timestep, total_reward = 0, 0 
+        state = env.reset()
+        timestep, total_reward, done = 0, 0, False 
         
         # loop through the episode
         while not done:

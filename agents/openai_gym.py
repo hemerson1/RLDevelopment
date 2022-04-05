@@ -80,3 +80,9 @@ class lunar_lander_pid:
         print('Best reward: {}'.format(self.prev_reward))
         print('--------------------------------')
         
+        """
+        Update the agent.
+        """        
+        def update(self):
+            pass
+        
