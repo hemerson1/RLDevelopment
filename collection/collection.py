@@ -29,7 +29,8 @@ def collect_sample(env, policy, sample_size, **kwargs):
     while len(memory) < sample_size:
         
         # reset the environmental parameters
-        state, done, timestep = env.reset(), False, 0
+        state = env.reset()
+        done, timestep = False, 0
         
         # loop through the episode
         while not done:
