@@ -2,7 +2,16 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-import math
+import math, random
+from gym.envs.registration import register
+
+
+# Register the child gym environment 
+register(
+    id='simglucose-child1-v0',
+    entry_point='simglucose.envs:T1DSimEnv',
+    kwargs={'patient_name': 'child#001'}
+)
 
 
 """
@@ -126,6 +135,9 @@ def bolus_class_wrapper(env):
 
             # calculate the meal bolus
             if current_meal > 0:
+                
+                # add estimation uncertainty
+                current_meal += current_meal * random.uniform(-0.1, 0.1)                
                 bolus_insulin += current_meal/cr
                 if meal_sum == 0:
                      bolus_insulin += (blood_glucose - target_bg)/cf
@@ -149,5 +161,38 @@ def magni_class_wrapper(env):
         state, _, done, info = func(action)
         reward = -10 * (p2 * (math.log(max(1, state[0]))**p2 - p3)) ** 2   
         return state, reward, done, info
+    
+    return function_wrapper
+
+
+"""
+Add Ornstein-Uhlenbeck Noise to the action output for 
+improved exploration.
+"""
+def ou_class_wrapper(agent):
+    
+    func = agent.get_action
+    agent.prev_ou_noise = 0
+    sigma, theta, dt = 0, 0, 0
+    
+    """
+    Use variables stored within the agent class to
+    keep track of previous noise values.
+    """
+    def function_wrapper(state):
+        
+        # calculate the ou noise
+        t1 = agent.prev_ou_noise
+        t2 = theta * (0 - agent.prev_ou_noise) * dt
+        t3 = sigma * math.sqrt(dt) * random.uniform(0, 1)
+        ou_noise = t1 + t2 + t3
+        ou_noise = ou_noise * agent.bas
+        agent.prev_ou_noise = ou_noise
+        
+        # get the action
+        action = func(state)
+        action += ou_noise
+        
+        return action
     
     return function_wrapper
