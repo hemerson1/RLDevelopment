@@ -37,14 +37,15 @@ def clean_sample(memory):
         state_array = state_array.reshape(-1, 1)
         next_state_array = next_state_array.reshape(-1, 1)
     if action_array.ndim < 2:
-        action_array = action_array.reshape(-1, 1)        
+        action_array = action_array.reshape(-1, 1)     
         
     # calculate the mean and stds
-    state_mean, state_std = np.mean(state_array, axis=0), np.std(state_array, axis=0)
-    action_mean, action_std = np.mean(action_array, axis=0), np.std(action_array, axis=0)
+    axis = tuple(range(state_array.ndim - 1))    
+    state_mean, state_std = np.mean(state_array, axis=axis), np.std(state_array, axis=axis)
+    action_mean, action_std = np.mean(action_array, axis=axis), np.std(action_array, axis=axis)
     
     # norm the data
-    state_array = (state_array - state_mean) / (state_std + 1e-6)
+    state_array = (state_array - state_mean) / (state_std + 1e-6)    
     next_state_array = (next_state_array - state_mean) / (state_std + 1e-6)
     action_array = (action_array - action_mean) / (action_std + 1e-6)
     
@@ -76,11 +77,11 @@ def get_batch(memory, batch_size, device="cpu"):
     chosen_idx = full_idx[:batch_size]
     
     # unpackage the memory and convert to tensor form
-    state = torch.FloatTensor(memory["state"][chosen_idx, :]).to(device)
-    action = torch.FloatTensor(memory["action"][chosen_idx, :]).to(device)
-    next_state = torch.FloatTensor(memory["next_state"][chosen_idx, :]).to(device)
-    reward = torch.FloatTensor(memory["reward"][chosen_idx, :]).to(device)
-    done = torch.Tensor(memory["done"][chosen_idx, :]).to(device)
+    state = torch.FloatTensor(memory["state"][chosen_idx, :].reshape(batch_size, -1)).to(device)
+    action = torch.FloatTensor(memory["action"][chosen_idx, :].reshape(batch_size, -1)).to(device)
+    next_state = torch.FloatTensor(memory["next_state"][chosen_idx, :].reshape(batch_size, -1)).to(device)
+    reward = torch.FloatTensor(memory["reward"][chosen_idx, :].reshape(batch_size, -1)).to(device)
+    done = torch.Tensor(memory["done"][chosen_idx, :].reshape(batch_size, -1)).to(device)
     
     batch = {
         "state": state,    
