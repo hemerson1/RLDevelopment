@@ -18,6 +18,8 @@ test episodes.
 """
 def test_policy(env, policy, episodes, **kwargs):
     
+    test = False
+    
     # run the policy for a set number of episodes
     episode_reward, episode_timestep = list(), list()
     for ep in range(episodes): 
