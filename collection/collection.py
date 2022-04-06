@@ -35,18 +35,24 @@ def collect_sample(env, policy, sample_size, **kwargs):
         # loop through the episode
         while not done:
             
+            # monitor the sample size
+            if len(memory) % (sample_size // 10) == 0 and len(memory) > 0: 
+                print('Samples collected: {}'.format(len(memory)))
+                if len(memory) == sample_size:
+                    break
+            
             # take an action and step the environment
             action = policy.get_action(state=state)
-            next_state, reward, done, _ = env.step(action)            
+            next_state, reward, done, _ = env.step(action)      
+            
+            # terminate if reached max timesteps
+            if timestep == kwargs.get("max_timestep", -1):
+                done = True
             
             # log the data
             sample = {"state": state, "next_state": next_state, 
                       "action": action, "done": done, "reward": reward}
             memory.append(sample)
-            
-            # terminate if reached max timesteps
-            if timestep == kwargs.get("max_timestep", -1):
-                done = True
             
             # update the variables
             state = next_state

@@ -3,6 +3,7 @@
 
 import numpy as np
 import math, random
+from datetime import datetime
 from gym.envs.registration import register
 
 
@@ -108,24 +109,31 @@ class simglucose_pid:
     """        
     def update(self):
         pass
+    
         
 """
-Wrap the child#1 simglucose environment to automatically 
-apply bolus insulin doses using pre-calculated parameters.
+Wrap the child#1 simglucose environment to modify the 
+state, reward and add automatic bolus dosing.
 """        
-def bolus_class_wrapper(env):  
+def simglucose_class_wrapper(env):  
     
-    func = env.step
+    # Patient Parameters
+    step, reset = env.step, env.reset
     cr, cf = 28.616, 103.017
     target_bg = 144
+    p1, p2, p3 = 3.5506, 0.8353, 3.7932
     
     """
-    Wrap the env.step method to include bolus insulin as 
-    well as pre-calculated basal insulin,
+    Wrap the env.step method to include automatic bolus dosing, the magni risk
+    reward and  a modified state including blood glucose, carbs ingested, total
+    insulin dose and minute of the day.
     """
-    def function_wrapper(basal_insulin):  
+    def step_wrapper(basal_insulin):  
         
-        meals, bolus_insulin = env.env.CHO_hist, 0
+        # Include the bolus insulin dose -----------------------
+        
+        insulin_dose, bolus_insulin = basal_insulin, 0
+        current_meal, meals = 0, env.env.CHO_hist
         if len(meals) > 0:
             
             # extract the params from the simulator
@@ -141,28 +149,45 @@ def bolus_class_wrapper(env):
                 bolus_insulin += current_meal/cr
                 if meal_sum == 0:
                      bolus_insulin += (blood_glucose - target_bg)/cf
+                insulin_dose += bolus_insulin/3
         
-        return func(basal_insulin + bolus_insulin/3)     
-    
-    return function_wrapper
-
-"""
-Use the magni risk function in place of the included reward function.
-"""
-def magni_class_wrapper(env):
-    
-    func = env.step
-    p1, p2, p3 = 3.5506, 0.8353, 3.7932
+        # step the environment
+        blood_glucose, _, done, info = step(insulin_dose) 
+        
+        # Modify the outputs ------------------------------
+        
+        reward = -10 * (p2 * (math.log(max(1, blood_glucose[0]))**p2 - p3)) ** 2
+        current_time = env.env.time_hist[-1]
+        time_in_mins = ((current_time.hour * 60) + current_time.minute)        
+        state = np.array([blood_glucose[0], current_meal, insulin_dose, time_in_mins], dtype=float)        
+        
+        return state, reward, done, info   
     
     """
-    Overwrite the reward output of the step function.
+    Wrap the env.reset function to ensure that the first state is includes 
+    blood glucose, carbohydrate, insulin and time information.    
     """
-    def function_wrapper(action):
-        state, _, done, info = func(action)
-        reward = -10 * (p2 * (math.log(max(1, state[0]))**p2 - p3)) ** 2   
-        return state, reward, done, info
+    def reset_wrapper():
+        
+        # get default insulin level
+        patient_info = env.env.patient._params
+        u2ss = patient_info['u2ss']
+        BW = patient_info['BW']
+        bas = u2ss * (BW/6000)
+        
+        # set state
+        blood_glucose = reset()
+        current_time = env.env.time_hist[-1]
+        time_in_mins = ((current_time.hour * 60) + current_time.minute) 
+        state = np.array([blood_glucose[0], 0, bas, time_in_mins])        
+        
+        return state
     
-    return function_wrapper
+    # Define the new functions
+    env.step = step_wrapper
+    env.reset = reset_wrapper        
+    
+    return env
 
 
 """
@@ -171,7 +196,7 @@ improved exploration.
 """
 def ou_class_wrapper(agent):
     
-    func = agent.get_action
+    get_action = agent.get_action
     agent.prev_ou_noise = 0
     sigma, theta, dt = 0, 0, 0
     
@@ -179,7 +204,7 @@ def ou_class_wrapper(agent):
     Use variables stored within the agent class to
     keep track of previous noise values.
     """
-    def function_wrapper(state):
+    def get_action_wrapper(state):
         
         # calculate the ou noise
         t1 = agent.prev_ou_noise
@@ -190,9 +215,12 @@ def ou_class_wrapper(agent):
         agent.prev_ou_noise = ou_noise
         
         # get the action
-        action = func(state)
+        action = get_action(state)
         action += ou_noise
         
         return action
     
-    return function_wrapper
+    # update the method
+    agent.get_action = get_action_wrapper
+    
+    return agent
