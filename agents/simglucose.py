@@ -41,7 +41,7 @@ class simglucose_pid:
     def get_action(self, state):
         
         # proportional control
-        error = self.target_blood_glucose - state[0] 
+        error = self.target_blood_glucose - state[-1, 0] 
         p_act = self.params[0] * error
 
         # integral control        
@@ -115,7 +115,7 @@ class simglucose_pid:
 Wrap the child#1 simglucose environment to modify the 
 state, reward and add automatic bolus dosing.
 """        
-def simglucose_class_wrapper(env):  
+def simglucose_class_wrapper(env, horizon=1):  
     
     # Patient Parameters
     step, reset = env.step, env.reset
@@ -123,9 +123,12 @@ def simglucose_class_wrapper(env):
     target_bg = 144
     p1, p2, p3 = 3.5506, 0.8353, 3.7932
     
+    # Track historical data
+    env.logged_states = [] 
+    
     """
     Wrap the env.step method to include automatic bolus dosing, the magni risk
-    reward and  a modified state including blood glucose, carbs ingested, total
+    reward and a modified state including blood glucose, carbs ingested, total
     insulin dose and minute of the day.
     """
     def step_wrapper(basal_insulin):  
@@ -159,8 +162,14 @@ def simglucose_class_wrapper(env):
         reward = -10 * (p2 * (math.log(max(1, blood_glucose[0]))**p2 - p3)) ** 2
         current_time = env.env.time_hist[-1]
         time_in_mins = ((current_time.hour * 60) + current_time.minute)        
-        state = np.array([blood_glucose[0], current_meal, insulin_dose, time_in_mins], dtype=float)        
+        state = np.array([blood_glucose[0], current_meal, insulin_dose, time_in_mins], dtype=float)   
         
+        # Include historical data in state ---------------------------
+                        
+        env.logged_states.append(state)
+        padding_states = [env.logged_states[0]] * (horizon - len(env.logged_states))
+        state = np.array(padding_states + env.logged_states[-horizon:], dtype=float)    
+                        
         return state, reward, done, info   
     
     """
@@ -179,7 +188,12 @@ def simglucose_class_wrapper(env):
         blood_glucose = reset()
         current_time = env.env.time_hist[-1]
         time_in_mins = ((current_time.hour * 60) + current_time.minute) 
-        state = np.array([blood_glucose[0], 0, bas, time_in_mins])        
+        state = np.array([blood_glucose[0], 0, bas, time_in_mins])       
+        
+        # include historical data
+        env.logged_states.append(state)
+        padding_states = [env.logged_states[0]] * (horizon - len(env.logged_states))
+        state = np.array(padding_states + env.logged_states[-horizon:], dtype=float)  
         
         return state
     
