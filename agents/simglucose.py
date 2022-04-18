@@ -3,6 +3,7 @@
 
 import numpy as np
 import math, random
+import matplotlib.pyplot as plt
 from datetime import datetime
 from gym.envs.registration import register
 
@@ -125,7 +126,7 @@ def simglucose_class_wrapper(env, horizon=1):
     
     # Track historical data
     env.logged_states = [] 
-    
+        
     """
     Wrap the env.step method to include automatic bolus dosing, the magni risk
     reward and a modified state including blood glucose, carbs ingested, total
@@ -135,7 +136,7 @@ def simglucose_class_wrapper(env, horizon=1):
         
         # Include the bolus insulin dose -----------------------
         
-        insulin_dose, bolus_insulin = basal_insulin, 0
+        insulin_dose, bolus_insulin = np.copy(basal_insulin), 0
         current_meal, meals = 0, env.env.CHO_hist
         if len(meals) > 0:
             
@@ -238,3 +239,68 @@ def ou_class_wrapper(agent):
     agent.get_action = get_action_wrapper
     
     return agent
+
+"""
+Display the actions and achieved blood glucose values of 
+agent evaluated on the simglucose environment. 
+"""
+def glucose_metrics(logs, window=480):  
+    
+    # check the logs all satisfy the window
+    total_lengths = [min(len(log["state"]), window) for log in logs]
+    error_message = "Input data does not span the specified window size."
+    assert sum(total_lengths) / len(total_lengths) == total_lengths[0], error_message    
+            
+    # get the x-axis 
+    x = list(range(total_lengths[0]))
+
+    # Initialise the plot and specify the title
+    fig = plt.figure(dpi=160)
+    gs = fig.add_gridspec(4, hspace=0.0)
+    axs = gs.subplots(sharex=True, sharey=False) 
+
+    # define the hypo, eu and hyper regions
+    axs[0].axhspan(180, 500, color='lightcoral', alpha=0.6, lw=0)
+    axs[0].axhspan(70, 180, color='#c1efc1', alpha=1.0, lw=0)
+    axs[0].axhspan(0, 70, color='lightcoral', alpha=0.6, lw=0)
+    
+    dose_max = 0
+    for log in logs: 
+        
+        # unpackage the relevant metrics
+        metrics = [(state[-1, 0], state[-1, 1], state[-1, 2]) for state in log["state"]] 
+        blood_glucose, meals, insulin_doses = zip(*metrics)
+        actions = [action[0] for action in log["action"]]                
+        window = min(window, len(blood_glucose))
+        blood_glucose, meals = np.array(blood_glucose[-window:]), np.array(meals[-window:])
+        insulin_doses, actions = np.array(insulin_doses[-window:]), np.array(actions[-window:])
+        
+        # plot the values
+        axs[0].plot(x, blood_glucose, label=log["name"])
+        axs[1].plot(x, actions, label=log["name"])
+        axs[2].plot(x, insulin_doses - actions, label=log["name"])
+        axs[3].plot(x, meals, label=log["name"])
+        dose_max = max(np.max(actions), dose_max)               
+
+    # update the axis ranges    
+    axs[0].legend(bbox_to_anchor=(1.0, 1.0))
+    axs[0].axis(ymin=50, ymax=500)
+    axs[0].axis(xmin=0.0, xmax=len(blood_glucose))
+    axs[0].set_ylabel("BG \n(mg/dL)")
+    axs[0].set_xlabel("Time \n(mins)")
+    axs[1].axis(ymin=0.0, ymax=(dose_max * 1.4))
+    axs[1].set_ylabel("Basal \n(U/min)")
+    axs[2].axis(ymin=0.01, ymax=0.99)
+    axs[2].set_ylabel("Bolus \n(U/min)")
+    axs[3].axis(ymin=0, ymax=29.9)
+    axs[3].set_ylabel("CHO \n(g/min)")
+
+    # Hide x labels and tick labels for all but bottom plot.
+    for ax in axs:
+        ax.label_outer()
+
+    plt.show()
+    
+    
+
+    

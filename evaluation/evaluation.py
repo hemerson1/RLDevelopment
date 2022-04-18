@@ -19,7 +19,9 @@ test episodes.
 def test_policy(env, policy, episodes, **kwargs):
     
     # run the policy for a set number of episodes
-    episode_reward, episode_timestep = list(), list()
+    episode_reward, episode_timestep = [], []
+    states, actions, rewards, dones = [], [], [], []
+    
     for ep in range(episodes): 
         
         # reset the environmental parameters
@@ -47,6 +49,12 @@ def test_policy(env, policy, episodes, **kwargs):
             timestep += 1
             total_reward += reward   
             
+            # update the logs
+            states.append(state)
+            actions.append(action)
+            dones.append(done)
+            rewards.append(reward)
+            
         # update the logs
         episode_reward.append(total_reward)
         episode_timestep.append(timestep)
@@ -54,14 +62,22 @@ def test_policy(env, policy, episodes, **kwargs):
     # shut the window
     pygame.quit()
     
-    # package results
-    
+    # package results    
     results = {
         "reward": episode_reward,
         "timestep": episode_timestep
         }
+    
+    # package logged data
+    log = {
+        "state": states,
+        "action": actions,
+        "done": dones,
+        "reward": rewards,
+        "episodes": episodes
+    }
                 
-    return results
+    return results, log
 
 
 # TESTING -------------------------------------------------------------------
