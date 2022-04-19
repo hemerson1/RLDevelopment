@@ -5,4 +5,4 @@
 import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
-from .evaluation import test_policy
+from .evaluation import test_policy, test_prediction
