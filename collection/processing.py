@@ -94,6 +94,21 @@ def get_batch(memory, batch_size, device="cpu"):
     return batch
 
 
+"""
+Split a provided numpy array of samples into a specified 
+ratio of training and test data.
+"""
+def create_split(data, split):    
+    
+    train_data, test_data = {}, {}
+    for key, val in data.items():    
+        parts = np.split(val, [int(split * len(data["state"]))], axis=0)
+        test_data[key] = parts[0]
+        train_data[key] = parts[1]
+        
+    return train_data, test_data
+
+
 # TESTING -------------------------------------------------------------------
     
     
