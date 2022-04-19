@@ -122,7 +122,6 @@ def simglucose_class_wrapper(env, horizon=1):
     step, reset = env.step, env.reset
     cr, cf = 28.616, 103.017
     target_bg = 144
-    p1, p2, p3 = 3.5506, 0.8353, 3.7932
     
     # Track historical data
     env.logged_states = [] 
@@ -160,7 +159,7 @@ def simglucose_class_wrapper(env, horizon=1):
         
         # Modify the outputs ------------------------------
         
-        reward = -10 * (p2 * (math.log(max(1, blood_glucose[0]))**p2 - p3)) ** 2
+        reward = magni_reward(blood_glucose)
         current_time = env.env.time_hist[-1]
         time_in_mins = ((current_time.hour * 60) + current_time.minute)        
         state = np.array([blood_glucose[0], current_meal, insulin_dose, time_in_mins], dtype=float)   
@@ -301,6 +300,13 @@ def glucose_metrics(logs, window=480):
 
     plt.show()
     
-    
+"""
+Use the Magni risk function to calculate the reward for 
+the current blood glucose value.
+"""   
+def magni_reward(blood_glucose):
+    p1, p2, p3 = 3.5506, 0.8353, 3.7932
+    reward = -10 * (p2 * (math.log(max(1, blood_glucose[0]))**p2 - p3)) ** 2 
+    return reward
 
     
