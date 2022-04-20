@@ -14,6 +14,7 @@ algorithms.
 import numpy as np
 import random
 import torch
+from collections import deque
 
 """
 Given a sample of data this function unpacks the batch and normalises the 
@@ -71,24 +72,34 @@ Given a replay return a batch of data from the replay of pre-specified size.
 """
 def get_batch(memory, batch_size, device="cpu"):
     
-    # generate a non-repeating set of indices
-    full_idx = np.arange(memory["state"].shape[0])
-    np.random.shuffle(full_idx)    
-    chosen_idx = full_idx[:batch_size]
+    # check if numpy array
+    if type(memory) is dict:
+        
+        # generate a non-repeating set of indices
+        full_idx = np.arange(memory["state"].shape[0])
+        np.random.shuffle(full_idx)    
+        chosen_idx = full_idx[:batch_size]
+        
+        format_lambda = lambda x: torch.FloatTensor(x[chosen_idx, :].reshape(batch_size, -1)).to(device)        
+        state, next_state, action, done, reward = list(map(format_lambda, memory.values()))
+        
+    # check if deque
+    elif type(memory) is deque:
+        
+        # get a random sample from the memory
+        batch = random.sample(memory, batch_size)      
+        
+        format_lambda = lambda x: torch.FloatTensor(np.array([x]).reshape(batch_size, -1)).to(device) 
+        unpacked_data = {key: [sample[key] for sample in batch] for key in batch[0]}       
+        state, next_state, action, done, reward = map(format_lambda, unpacked_data.values())
     
-    # unpackage the memory and convert to tensor form
-    state = torch.FloatTensor(memory["state"][chosen_idx, :].reshape(batch_size, -1)).to(device)
-    action = torch.FloatTensor(memory["action"][chosen_idx, :].reshape(batch_size, -1)).to(device)
-    next_state = torch.FloatTensor(memory["next_state"][chosen_idx, :].reshape(batch_size, -1)).to(device)
-    reward = torch.FloatTensor(memory["reward"][chosen_idx, :].reshape(batch_size, -1)).to(device)
-    done = torch.Tensor(memory["done"][chosen_idx, :].reshape(batch_size, -1)).to(device)
     
     batch = {
         "state": state,    
         "next_state": next_state,   
-        "action": action,   
-        "reward": reward,   
-        "done": done,         
+        "action": action,
+        "done": done,
+        "reward": reward      
         }
     
     return batch
