@@ -309,4 +309,44 @@ def magni_reward(blood_glucose):
     reward = -10 * (p2 * (math.log(max(1, blood_glucose[0]))**p2 - p3)) ** 2 
     return reward
 
+
+"""
+Visualise the blood glucose predictions of a 
+learned dynamics model.
+"""
+def display_glucose_prediction(true_values, pred_values):
+    
+    # unpackage the relevant metrics
+    horizon = len(pred_values["state"])
+    true_bg, pred_bg = true_values["state"][-horizon:, -1, 0], pred_values["state"][:, -1, 0]
+    true_action, pred_action = true_values["action"][-horizon:], pred_values["action"]     
+    
+    # get the x-axis 
+    x = list(range(len(true_bg)))
+
+    # Initialise the plot
+    fig = plt.figure(dpi=160)
+    gs = fig.add_gridspec(2, hspace=0.0)
+    axs = gs.subplots(sharex=True, sharey=False) 
+
+    # define the hypo, eu and hyper regions
+    axs[0].axhspan(180, 500, color='lightcoral', alpha=0.6, lw=0)
+    axs[0].axhspan(70, 180, color='#c1efc1', alpha=1.0, lw=0)
+    axs[0].axhspan(0, 70, color='lightcoral', alpha=0.6, lw=0)
+
+    # plot the values
+    axs[0].plot(x, true_bg, label="true")
+    axs[0].plot(x, pred_bg, label="pred")
+    axs[1].plot(x, true_action, label="true")    
+    axs[1].plot(x, pred_action, label="pred")       
+
+    # update the axis ranges    
+    axs[0].legend(bbox_to_anchor=(1.0, 1.0))
+    axs[0].axis(ymin=50, ymax=500)
+    axs[0].axis(xmin=0.0, xmax=len(true_bg))
+    axs[0].set_ylabel("BG \n(mg/dL)")
+    axs[0].set_xlabel("Time \n(mins)")
+    axs[1].axis(ymin=0.0, ymax=(max(true_action) * 1.4))
+    axs[1].set_ylabel("Basal \n(U/min)")
+
     

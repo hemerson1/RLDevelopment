@@ -13,5 +13,5 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 from .openai_gym import lunar_lander_pid
 from .simglucose import (
     simglucose_pid, simglucose_class_wrapper, ou_class_wrapper, 
-    glucose_metrics, magni_reward
+    glucose_metrics, magni_reward, display_glucose_prediction
 )
