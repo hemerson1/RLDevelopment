@@ -203,42 +203,6 @@ def simglucose_class_wrapper(env, horizon=1):
     
     return env
 
-
-"""
-Add Ornstein-Uhlenbeck Noise to the action output for 
-improved exploration.
-"""
-def ou_class_wrapper(agent):
-    
-    get_action = agent.get_action
-    agent.prev_ou_noise = 0
-    sigma, theta, dt = 0, 0, 0
-    
-    """
-    Use variables stored within the agent class to
-    keep track of previous noise values.
-    """
-    def get_action_wrapper(state):
-        
-        # calculate the ou noise
-        t1 = agent.prev_ou_noise
-        t2 = theta * (0 - agent.prev_ou_noise) * dt
-        t3 = sigma * math.sqrt(dt) * random.uniform(0, 1)
-        ou_noise = t1 + t2 + t3
-        ou_noise = ou_noise * agent.bas
-        agent.prev_ou_noise = ou_noise
-        
-        # get the action
-        action = get_action(state)
-        action += ou_noise
-        
-        return action
-    
-    # update the method
-    agent.get_action = get_action_wrapper
-    
-    return agent
-
 """
 Display the actions and achieved blood glucose values of 
 agent evaluated on the simglucose environment. 
@@ -247,7 +211,7 @@ def glucose_metrics(logs, window=480):
     
     # check the logs all satisfy the window
     total_lengths = [min(len(log["state"]), window) for log in logs]
-    error_message = "Input data does not span the specified window size."
+    error_message = "Input data does not span the specified window size: {}.".format(total_lengths)
     assert sum(total_lengths) / len(total_lengths) == total_lengths[0], error_message    
             
     # get the x-axis 
