@@ -127,7 +127,8 @@ def test_prediction(env, env_model, policy, horizon, **kwargs):
     
     # reset the environmental parameters
     pred_states, pred_actions, pred_rewards, pred_dones = [], [], [], []
-    state, done, timestep = env_model.reset(init_state), False, 0
+    env_model.init_state = init_state
+    state, done, timestep = env_model.reset(), False, 0
     
     while not done:
         

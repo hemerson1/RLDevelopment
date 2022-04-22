@@ -101,7 +101,8 @@ def train_agent(env, policy, sample_size, offline_data, **kwargs):
         )        
         
         # reset the environmental parameters
-        state = env.reset(init_state=batch["state"].cpu().data.numpy())        
+        env.init_state = batch["state"].cpu().data.numpy()
+        state = env.reset()        
         done, timestep, timestep, total_reward = False, 0, 0, 0
         
         # loop through the episode
