@@ -20,7 +20,10 @@ from collections import deque
 Given a sample of data this function unpacks the batch and normalises the 
 state and action space. 
 """
-def clean_sample(memory):
+def clean_sample(memory, **kwargs):
+    
+    # set the parameters
+    norm_reward = kwargs.get("norm_reward", False)
     
     # randomly shuffle the data
     memory = random.sample(list(memory), len(memory))
@@ -44,16 +47,24 @@ def clean_sample(memory):
     axis = tuple(range(state_array.ndim - 1))    
     state_mean, state_std = np.mean(state_array, axis=axis), np.std(state_array, axis=axis)
     action_mean, action_std = np.mean(action_array, axis=axis), np.std(action_array, axis=axis)
+    reward_mean, reward_std = np.mean(reward_array, axis=axis), np.std(reward_array, axis=axis)
     
     # norm the data
     state_array = (state_array - state_mean) / (state_std + 1e-6)    
     next_state_array = (next_state_array - state_mean) / (state_std + 1e-6)
     action_array = (action_array - action_mean) / (action_std + 1e-6)
+    if norm_reward: reward_array = (reward_array - reward_mean) / (reward_std + 1e-6)
+    
+    # calculate the max/min values
+    state_max, state_min = np.max(state_array, axis=axis), np.min(state_array, axis=axis)
+    action_max, action_min = np.max(action_array, axis=axis), np.min(action_array, axis=axis)
+    reward_max, reward_min = np.max(reward_array, axis=axis), np.min(reward_array, axis=axis)    
     
     # package the statistics
     statistics = {
-        "state": [state_mean, state_std], 
-        "action": [action_mean, action_std], 
+        "state": [state_mean, state_std, state_max, state_min], 
+        "action": [action_mean, action_std, action_max, action_min], 
+        "reward": [reward_mean, reward_std, reward_max, reward_min] 
         }
     
     # repackage the data
