@@ -116,7 +116,11 @@ class simglucose_pid:
 Wrap the child#1 simglucose environment to modify the 
 state, reward and add automatic bolus dosing.
 """        
-def simglucose_class_wrapper(env, horizon=1):  
+def simglucose_class_wrapper(env, **kwargs):  
+    
+    # Set parameters
+    horizon = kwargs.get("horizon", 1)
+    condense_state = kwargs.get("use_condense_state", False)
     
     # Patient Parameters
     step, reset = env.step, env.reset
@@ -168,8 +172,16 @@ def simglucose_class_wrapper(env, horizon=1):
                         
         env.logged_states.append(state)
         padding_states = [env.logged_states[0]] * (horizon - len(env.logged_states))
-        state = np.array(padding_states + env.logged_states[-horizon:], dtype=float)    
-                        
+        state = np.array(padding_states + env.logged_states[-horizon:], dtype=float)
+        
+        # Condense the state ----------------------------------
+        
+        if use_condense_state:
+            state = condense_state(
+                state=state,
+                horizon=horizon
+            )
+                                    
         return state, reward, done, info   
     
     """
@@ -194,6 +206,13 @@ def simglucose_class_wrapper(env, horizon=1):
         env.logged_states.append(state)
         padding_states = [env.logged_states[0]] * (horizon - len(env.logged_states))
         state = np.array(padding_states + env.logged_states[-horizon:], dtype=float)  
+        
+        # condense the state 
+        if use_condense_state:
+            state = condense_state(
+                state=state,
+                horizon=horizon
+            )
         
         return state
     
@@ -272,6 +291,26 @@ def magni_reward(blood_glucose):
     p1, p2, p3 = 3.5506, 0.8353, 3.7932
     reward = -10 * (p2 * (math.log(max(1, blood_glucose[0]))**p2 - p3)) ** 2 
     return reward
+
+
+"""
+Transform the (horizon, 4) state into a condensed metric incorporating
+all the important information.
+"""
+def condense_state(self, state, horizon=80):
+
+    # extract the relevant metrics
+    state = state.reshape(-1, horizon, 4)       
+    bg_intervals = state[:, list(range(0, horizon, 10)) + [horizon - 1], 0].reshape(-1, 9)        
+    mob = np.sum(state[:, :, 1] * np.arange(horizon)/(horizon - 1), axis=1).reshape(-1, 1)
+    iob = np.sum(state[:, :, 2] * np.arange(horizon)/(horizon - 1), axis=1).reshape(-1, 1)
+    current_time = state[:, -1, -1].reshape(-1, 1)        
+
+    # combine the metrics
+    trans_state = np.concatenate([bg_intervals, mob, iob, current_time], axis=1)        
+    stats = [np.mean(trans_state, axis=0), np.std(trans_state, axis=0)]
+
+    return trans_state, stats     
 
 
 """
