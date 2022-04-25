@@ -43,6 +43,29 @@ def clean_sample(memory, **kwargs):
     if action_array.ndim < 2:
         action_array = action_array.reshape(-1, 1)     
         
+    # cycle through the done array
+    steps_log, steps = [], 0
+    init_states = [state_array[0, :]]
+    for idx, done in enumerate(done_array):          
+        if done:
+            init_states.append(next_state_array[idx, :])
+            steps_log.append(steps)
+            steps = 0            
+        steps += 1
+    
+    # get the number of trajectories and steps
+    step_array = np.array(steps_log).reshape(-1, 1)
+    traj_num_array = np.array(len(steps_log)).reshape(-1, 1)
+    init_states = np.array(init_states).reshape(-1, 1)
+    
+    # get the weights
+    num_trajectories = traj_num_array
+    init_weight_array = np.random.multinomial(num_trajectories, [1.0 / num_trajectories] * num_trajectories, 1).reshape(-1, 1)
+    weights = []
+    for idx in range(traj_num_array[0]):
+        weights.append(np.ones(steps_array[idx, :]) * init_weight_array[idx, :])
+    weight_array = np.array(weights).reshape(-1, 1)    
+    
     # calculate the mean and stds
     axis = tuple(range(state_array.ndim - 1))    
     state_mean, state_std = np.mean(state_array, axis=axis), np.std(state_array, axis=axis)
@@ -69,11 +92,21 @@ def clean_sample(memory, **kwargs):
     
     # repackage the data
     clean_data = {
+        
+        # combined trajectories
         "state": state_array,    
         "next_state": next_state_array,   
         "action": action_array,   
         "reward": reward_array,   
-        "done": done_array,   
+        "done": done_array,  
+        "weight": weight_array,
+        
+        # grouped by trajectory
+        "step": step_array,
+        "num_trajectory": traj_num_array,
+        "init_weight": init_weight_array,
+        "init_state": init_state_array        
+        
         }
     
     return clean_data, statistics
@@ -83,6 +116,9 @@ Given a replay return a batch of data from the replay of pre-specified size.
 """
 def get_batch(memory, batch_size, device="cpu"):
     
+    # initialise weight
+    weight = None    
+    
     # check if numpy array
     if type(memory) is dict:
         
@@ -91,6 +127,10 @@ def get_batch(memory, batch_size, device="cpu"):
         np.random.shuffle(full_idx)    
         chosen_idx = full_idx[:batch_size]
         
+        ################################
+        # TODO: add in weight
+        ################################          
+        
         format_lambda = lambda x: torch.FloatTensor(x[chosen_idx, :].reshape(batch_size, -1)).to(device)        
         state, next_state, action, done, reward = list(map(format_lambda, memory.values()))
         
@@ -98,19 +138,19 @@ def get_batch(memory, batch_size, device="cpu"):
     elif type(memory) is deque:
         
         # get a random sample from the memory
-        batch = random.sample(memory, batch_size)      
+        batch = random.sample(memory, batch_size) 
         
         format_lambda = lambda x: torch.FloatTensor(np.array([x]).reshape(batch_size, -1)).to(device) 
         unpacked_data = {key: [sample[key] for sample in batch] for key in batch[0]}       
         state, next_state, action, done, reward = map(format_lambda, unpacked_data.values())
-    
     
     batch = {
         "state": state,    
         "next_state": next_state,   
         "action": action,
         "done": done,
-        "reward": reward      
+        "reward": reward, 
+        "weight": weight
         }
     
     return batch
