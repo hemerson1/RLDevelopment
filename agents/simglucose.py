@@ -22,7 +22,7 @@ within the UVA/Padova Glucose Dynamics Simulator.
 """
 class simglucose_pid:
     
-    def __init__(self):
+    def __init__(self, **kwargs):
         
         # Child 1 Params
         self.bas = 1.142 * (34.556/6000) * 3
@@ -34,6 +34,14 @@ class simglucose_pid:
         self.params = np.array([-1.290e-05, 2.067e-10, -1.103e-03])
         self.temp_params = self.params
         self.prev_reward = -500
+        self.conserve_state = kwargs.get("conserve_state", True)
+    
+    """
+    Reset the previous error and integrated state.
+    """
+    def reset(self):
+        self.integrated_state = 0
+        self.previous_error = 0           
     
     """
     Select the optimal dose of basal insulin to 
@@ -42,7 +50,7 @@ class simglucose_pid:
     def get_action(self, state):
         
         # proportional control
-        error = self.target_blood_glucose - state[-1, 0] 
+        error = self.target_blood_glucose - state[:, 0]
         p_act = self.params[0] * error
 
         # integral control        
@@ -55,6 +63,10 @@ class simglucose_pid:
 
         # get the final dose output
         action = np.array([(p_act + i_act + d_act + self.bas) / 3], dtype=np.float32)
+        
+        # stops actions from seperate predictions affecting one another
+        if not self.conserve_state:
+            self.reset()        
     
         return action
     
@@ -70,8 +82,7 @@ class simglucose_pid:
         max_timesteps = 480
         
         # Wrap the environment
-        env.step = bolus_class_wrapper(env)
-        env.step = magni_class_wrapper(env)
+        env = env.simglucose_class_wrapper(env)
         
         for ep in range(1, episodes + 1):
             
@@ -120,7 +131,8 @@ def simglucose_class_wrapper(env, **kwargs):
     
     # Set parameters
     horizon = kwargs.get("horizon", 1)
-    condense_state = kwargs.get("use_condense_state", False)
+    use_condense_state = kwargs.get("use_condense_state", False)
+    if use_condense_state: horizon = 80
     
     # Patient Parameters
     step, reset = env.step, env.reset
@@ -169,15 +181,15 @@ def simglucose_class_wrapper(env, **kwargs):
         state = np.array([blood_glucose[0], current_meal, insulin_dose, time_in_mins], dtype=float)   
         
         # Include historical data in state ---------------------------
-                        
-        env.logged_states.append(state)
-        padding_states = [env.logged_states[0]] * (horizon - len(env.logged_states))
-        state = np.array(padding_states + env.logged_states[-horizon:], dtype=float)
+        
+        env.logged_states.insert(0, state)
+        padding_states = [env.logged_states[-min(horizon, len(env.logged_states))]] * (horizon - len(env.logged_states))
+        state = np.array(env.logged_states[:horizon] + padding_states, dtype=float).reshape(1, -1)
         
         # Condense the state ----------------------------------
         
         if use_condense_state:
-            state = condense_state(
+            state, _ = condense_state(
                 state=state,
                 horizon=horizon
             )
@@ -203,13 +215,13 @@ def simglucose_class_wrapper(env, **kwargs):
         state = np.array([blood_glucose[0], 0, bas, time_in_mins])       
         
         # include historical data
-        env.logged_states.append(state)
-        padding_states = [env.logged_states[0]] * (horizon - len(env.logged_states))
-        state = np.array(padding_states + env.logged_states[-horizon:], dtype=float)  
+        env.logged_states.insert(0, state)
+        padding_states = [env.logged_states[-min(horizon, len(env.logged_states))]] * (horizon - len(env.logged_states))
+        state = np.array(env.logged_states[:horizon] + padding_states, dtype=float).reshape(1, -1)
         
         # condense the state 
         if use_condense_state:
-            state = condense_state(
+            state, _ = condense_state(
                 state=state,
                 horizon=horizon
             )
@@ -297,11 +309,11 @@ def magni_reward(blood_glucose):
 Transform the (horizon, 4) state into a condensed metric incorporating
 all the important information.
 """
-def condense_state(self, state, horizon=80):
+def condense_state(state, horizon=80):
 
     # extract the relevant metrics
     state = state.reshape(-1, horizon, 4)       
-    bg_intervals = state[:, list(range(0, horizon, 10)) + [horizon - 1], 0].reshape(-1, 9)        
+    bg_intervals = state[:, list(range(0, horizon, 10)) + [horizon - 1], 0].reshape(-1, 9)  
     mob = np.sum(state[:, :, 1] * np.arange(horizon)/(horizon - 1), axis=1).reshape(-1, 1)
     iob = np.sum(state[:, :, 2] * np.arange(horizon)/(horizon - 1), axis=1).reshape(-1, 1)
     current_time = state[:, -1, -1].reshape(-1, 1)        
