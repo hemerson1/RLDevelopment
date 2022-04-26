@@ -25,9 +25,6 @@ def clean_sample(memory, **kwargs):
     # set the parameters
     norm_reward = kwargs.get("norm_reward", False)
     
-    # randomly shuffle the data
-    memory = random.sample(list(memory), len(memory))
-    
     # package the data together
     unpacked_data = {key: [sample[key] for sample in memory] for key in memory[0]}
     state_array = np.array(unpacked_data["state"])
@@ -44,27 +41,30 @@ def clean_sample(memory, **kwargs):
         action_array = action_array.reshape(-1, 1)     
         
     # cycle through the done array
-    steps_log, steps = [], 0
-    init_states = [state_array[0, :]]
-    for idx, done in enumerate(done_array):          
-        if done:
-            init_states.append(next_state_array[idx, :])
+    steps_log, init_states, steps = [], [], 0
+    for idx, done in enumerate(done_array):
+        
+        # record initial states
+        if steps == 0:
+            init_states.append(state_array[idx, :])
+        
+        # record steps per trajectory
+        steps += 1
+        if done or idx == len(done_array) - 1:
             steps_log.append(steps)
             steps = 0            
-        steps += 1
     
     # get the number of trajectories and steps
     step_array = np.array(steps_log).reshape(-1, 1)
-    traj_num_array = np.array(len(steps_log)).reshape(-1, 1)
-    init_states = np.array(init_states).reshape(-1, 1)
+    init_state_array = np.array(init_states)
+    num_trajectories = int(len(steps_log))
     
     # get the weights
-    num_trajectories = traj_num_array
     init_weight_array = np.random.multinomial(num_trajectories, [1.0 / num_trajectories] * num_trajectories, 1).reshape(-1, 1)
     weights = []
-    for idx in range(traj_num_array[0]):
-        weights.append(np.ones(steps_array[idx, :]) * init_weight_array[idx, :])
-    weight_array = np.array(weights).reshape(-1, 1)    
+    for idx in range(num_trajectories):
+        weights.append(np.ones(step_array[idx, :]) * init_weight_array[idx, :])        
+    weight_array = np.concatenate(weights).reshape(-1, 1) 
     
     # calculate the mean and stds
     axis = tuple(range(state_array.ndim - 1))    
@@ -75,6 +75,7 @@ def clean_sample(memory, **kwargs):
     # norm the data
     state_array = (state_array - state_mean) / (state_std + 1e-6)    
     next_state_array = (next_state_array - state_mean) / (state_std + 1e-6)
+    init_state_array = (init_state_array - state_mean) / (state_std + 1e-6)
     action_array = (action_array - action_mean) / (action_std + 1e-6)
     if norm_reward: reward_array = (reward_array - reward_mean) / (reward_std + 1e-6)
     
@@ -103,7 +104,7 @@ def clean_sample(memory, **kwargs):
         
         # grouped by trajectory
         "step": step_array,
-        "num_trajectory": traj_num_array,
+        "num_trajectory": num_trajectories,
         "init_weight": init_weight_array,
         "init_state": init_state_array        
         
@@ -127,12 +128,9 @@ def get_batch(memory, batch_size, device="cpu"):
         np.random.shuffle(full_idx)    
         chosen_idx = full_idx[:batch_size]
         
-        ################################
-        # TODO: add in weight
-        ################################          
-        
+        num_elems = 6
         format_lambda = lambda x: torch.FloatTensor(x[chosen_idx, :].reshape(batch_size, -1)).to(device)        
-        state, next_state, action, done, reward = list(map(format_lambda, memory.values()))
+        state, next_state, action, done, reward, weight = list(map(format_lambda, list(memory.values())[:num_elems]))
         
     # check if deque
     elif type(memory) is deque:
