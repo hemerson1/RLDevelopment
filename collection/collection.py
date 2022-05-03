@@ -58,7 +58,7 @@ def collect_sample(env, policy, sample_size, **kwargs):
             
             # log the data
             sample = {"state": state, "next_state": next_state, 
-                      "action": action, "done": done, "reward": reward}
+                      "action": action, "reward": reward, "done": done}
             memory.append(sample)
             
             # update the variables
@@ -128,7 +128,7 @@ def train_agent(env, policy, sample_size, offline_data, **kwargs):
             
             # log the data
             sample = {"state": state, "next_state": next_state, 
-                      "action": action, "done": done, "reward": reward}
+                      "action": action, "reward": reward, "done": done}
             memory.append(sample)
                                     
             # train the agent

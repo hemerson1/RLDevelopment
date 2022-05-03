@@ -24,6 +24,7 @@ def clean_sample(memory, **kwargs):
     
     # set the parameters
     norm_reward = kwargs.get("norm_reward", False)
+    reward_noise = kwargs.get("reward_noise", 0.0)
     
     # package the data together
     unpacked_data = {key: [sample[key] for sample in memory] for key in memory[0]}
@@ -71,6 +72,11 @@ def clean_sample(memory, **kwargs):
     state_mean, state_std = np.mean(state_array, axis=axis), np.std(state_array, axis=axis)
     action_mean, action_std = np.mean(action_array, axis=axis), np.std(action_array, axis=axis)
     reward_mean, reward_std = np.mean(reward_array, axis=axis), np.std(reward_array, axis=axis)
+    
+    # add reward noise
+    if reward_noise > 0: 
+        reward_array[1::3, :] += reward_std * reward_noise
+        reward_array[2::3, :] -= reward_std * reward_noise 
     
     # norm the data
     state_array = (state_array - state_mean) / (state_std + 1e-6)    
@@ -129,9 +135,9 @@ def get_batch(memory, batch_size, device="cpu"):
         chosen_idx = full_idx[:batch_size]
         
         num_elems = 6
-        format_lambda = lambda x: torch.FloatTensor(x[chosen_idx, :].reshape(batch_size, -1)).to(device)        
-        state, next_state, action, done, reward, weight = list(map(format_lambda, list(memory.values())[:num_elems]))
-        
+        format_lambda = lambda x: torch.FloatTensor(x[chosen_idx, :].reshape(batch_size, -1)).to(device)   
+        state, next_state, action, reward, done, weight = list(map(format_lambda, list(memory.values())[:num_elems]))
+                
     # check if deque
     elif type(memory) is deque:
         
@@ -140,7 +146,7 @@ def get_batch(memory, batch_size, device="cpu"):
         
         format_lambda = lambda x: torch.FloatTensor(np.array([x]).reshape(batch_size, -1)).to(device) 
         unpacked_data = {key: [sample[key] for sample in batch] for key in batch[0]}       
-        state, next_state, action, done, reward = map(format_lambda, unpacked_data.values())
+        state, next_state, action, reward, done = map(format_lambda, unpacked_data.values())
     
     batch = {
         "state": state,    
