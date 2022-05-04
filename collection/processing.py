@@ -22,9 +22,16 @@ state and action space.
 """
 def clean_sample(memory, **kwargs):
     
+    """
+    TODO:
+    - may want to brake this function into smaller components.
+    
+    """
+    
     # set the parameters
     norm_reward = kwargs.get("norm_reward", False)
     reward_noise = kwargs.get("reward_noise", 0.0)
+    standardise_dict = kwargs.get("standardise_dict", None)
     
     # package the data together
     unpacked_data = {key: [sample[key] for sample in memory] for key in memory[0]}
@@ -72,6 +79,18 @@ def clean_sample(memory, **kwargs):
     state_mean, state_std = np.mean(state_array, axis=axis), np.std(state_array, axis=axis)
     action_mean, action_std = np.mean(action_array, axis=axis), np.std(action_array, axis=axis)
     reward_mean, reward_std = np.mean(reward_array, axis=axis), np.std(reward_array, axis=axis)
+    
+    # standardise the data 
+    if standardise_dict is not None:    
+        if "state" in standardise_dict:
+            state_mean = standardise_dict["state"][:, 1]
+            state_std = standardise_dict["state"][:, 0] - standardise_dict["state"][:, 1]        
+        if "action" in standardise_dict:
+            action_mean = standardise_dict["action"][:, 1]
+            action_std = standardise_dict["action"][:, 0] - standardise_dict["action"][:, 1]
+        if "reward" in standardise_dict:
+            reward_mean = standardise_dict["reward"][:, 1]
+            reward_std = standardise_dict["reward"][:, 0] - standardise_dict["reward"][:, 1]
     
     # add reward noise
     if reward_noise > 0: 
