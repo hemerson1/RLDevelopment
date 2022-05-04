@@ -68,7 +68,7 @@ class simglucose_pid:
         if not self.conserve_state:
             self.reset()        
     
-        return action
+        return np.maximum(action, 0.0)
     
     """
     Determine the optimal parameters for the agent.
