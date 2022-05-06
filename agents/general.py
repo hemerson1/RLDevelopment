@@ -75,3 +75,23 @@ def ou_class_wrapper(agent, scale=1):
     agent.get_action = get_action_wrapper
     
     return agent
+
+
+"""
+Convert the output of deterministic agent into a stochastic 
+output in the form of log probability.
+"""
+def get_log_prob(action, **kwargs):
+    
+    # get the parameters
+    offset = kwargs.get("offset", 0)
+    std = kwargs.get("std", 1)
+    
+    # get the mean and std using the normalised action
+    mean = action + np.random.normal(loc=offset, scale=std, size=action.shape)
+    
+    # calculate the log prob
+    norm_diff = (action - mean)/std
+    log_prob = -(np.log(std) + 0.5 * (np.log(2 * math.pi) + np.square(norm_diff)))
+    
+    return log_prob
