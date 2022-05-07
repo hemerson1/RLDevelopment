@@ -140,7 +140,10 @@ def clean_sample(memory, **kwargs):
 """
 Given a replay return a batch of data from the replay of pre-specified size. 
 """
-def get_batch(memory, batch_size, device="cpu"):
+def get_batch(memory, batch_size, device="cpu", **kwargs):
+    
+    # set the parameters
+    shuffle = kwargs.get("shuffle", True)    
     
     # initialise weight
     weight = None    
@@ -150,7 +153,7 @@ def get_batch(memory, batch_size, device="cpu"):
         
         # generate a non-repeating set of indices
         full_idx = np.arange(memory["state"].shape[0])
-        np.random.shuffle(full_idx)    
+        if shuffle: np.random.shuffle(full_idx)    
         chosen_idx = full_idx[:batch_size]
         
         num_elems = 6
