@@ -2,11 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-import math, random
+import math, random, gym
 import matplotlib.pyplot as plt
 from datetime import datetime
 from gym.envs.registration import register
-
 
 # Register the child gym environment 
 register(
