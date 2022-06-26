@@ -78,8 +78,7 @@ def ou_class_wrapper(agent, scale=1):
 
 
 """
-Convert the output of deterministic agent into a stochastic 
-output in the form of log probability.
+Calculate the log porbability from the output of a deterministic agent.
 """
 def get_log_prob(action, **kwargs):
     
@@ -95,3 +94,28 @@ def get_log_prob(action, **kwargs):
     log_prob = -(np.log(std) + 0.5 * (np.log(2 * math.pi) + np.square(norm_diff)))
     
     return log_prob
+
+"""
+Convert the output of deterministic agent into a stochastic 
+output in the form of log probability.
+"""
+def log_prob_class_wrapper(agent, **kwargs):
+    
+    get_action = agent.get_action
+    
+    """
+    Add an additional output to the action.
+    """
+    def get_action_wrapper(state):
+        
+        action = get_action(state)
+        log_prob = get_log_prob(action, **kwargs)        
+        return action, log_prob
+    
+    # update the method
+    agent.get_action = get_action_wrapper
+    
+    return agent
+        
+    
+    

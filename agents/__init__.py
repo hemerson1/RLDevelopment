@@ -11,7 +11,8 @@ import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning) 
 
 from .general import (
-    gaussian_class_wrapper, ou_class_wrapper, get_log_prob
+    gaussian_class_wrapper, ou_class_wrapper, get_log_prob, 
+    log_prob_class_wrapper
 )
 from .openai_gym import lunar_lander_pid
 from .simglucose import (

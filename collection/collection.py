@@ -29,19 +29,25 @@ def run_episode(seed, env, policy, **kwargs):
     if _abort.is_set(): 
         return
     
-    # initialise the data array
+    # initialise the data array    
     sequence_data = []
+    log_states, log_actions, log_next_states = [], [], []
+    log_log_probs, log_masks, log_rewards = [], [], []
     
     # reset the environmental parameters
     env.seed(seed)
     state = env.reset()
-    done, timestep = False, 0
+    done, timestep, log_prob = False, 0, 0.0
 
     # loop through the episode
     while not done:
 
-        # take an action and step the environment
-        action = policy.get_action(state=state)
+        # take an action 
+        action_output = policy.get_action(state=state)        
+        if len(action_output) > 1: action, log_prob = action_output[0], action_output[1]
+        else: action = action_output
+        
+        # step the environment
         next_state, reward, done, _ = env.step(action)  
 
         # add a termination penalty
@@ -53,9 +59,24 @@ def run_episode(seed, env, policy, **kwargs):
             done = True
 
         # log the data
-        sample = {"state": state, "next_state": next_state, 
-                  "action": action, "reward": reward, "done": done}
+        sample = {
+            "state": state, 
+            "next_state": next_state, 
+            "action": action, 
+            "reward": reward, 
+            "done": done, 
+            "log_prob": log_prob,
+            "mask": kwargs.get("discount", 0.99)
+        }
         sequence_data.append(sample)
+        
+        # keep track in additional format
+        log_states.append(state)
+        log_next_states.append(next_state)
+        log_actions.append(action)
+        log_rewards.append(reward)
+        log_masks.append(kwargs.get("discount", 0.99))
+        log_log_probs.append(log_prob)
 
         # update the variables
         state = next_state
@@ -71,6 +92,17 @@ def run_episode(seed, env, policy, **kwargs):
         if _counter.value >= _sample_size:
             print('Stopping worker early.')
             _abort.set()
+    
+    # process the data into dictionary form
+    if kwargs.get("output_format", "deque") == "dict":
+        sequence_data = dict(
+            states=np.array(log_states),
+            actions=np.array(log_actions),
+            log_probs=np.array(log_log_probs),
+            next_states=np.array(log_next_states),
+            rewards=np.array(log_rewards),
+            masks=np.array(log_masks)            
+        )            
     
     return sequence_data
 
@@ -93,9 +125,6 @@ When given a gym environment and compatible policy maker the function
 collects a sample of date for a specified period and saves a replay.
 """
 def collect_sample(env, policy, sample_size, **kwargs):
-    
-    # initialise the memory and the worker
-    memory = deque(maxlen=sample_size)
     
     # define the input function
     input_func = functools.partial(
@@ -123,11 +152,33 @@ def collect_sample(env, policy, sample_size, **kwargs):
     
     # run the multiprocessing
     list_output = pool.map(input_func, pool_args())
+    clean_list = [item for item in list_output if item] 
+    
+    # initialise the memory and filter out values
+    output_format = kwargs.get("output_format", "deque")
+    if output_format == "deque": 
+        memory = deque(maxlen=sample_size)   
+        clean_list = list(itertools.chain.from_iterable(clean_list))    
+        memory.extend(clean_list) 
+    
+    # cycle through the trajectories and append to a single list
+    elif output_format == "dict":
         
-    # filter to only include values
-    clean_list = [item for item in list_output if item]    
-    clean_list = list(itertools.chain.from_iterable(clean_list))    
-    memory.extend(clean_list)    
+        memory = dict(
+          model_filename=kwargs.get("filename", "training_sample"),
+          behavior_std=kwargs.get("std", 0.01),
+          trajectories=dict(
+              states=[],
+              actions=[],
+              log_probs=[],
+              next_states=[],
+              rewards=[],
+              masks=[])
+        )
+        
+        for traj in clean_list:
+            for k, v in traj.items():
+                memory['trajectories'][k].append(v)        
         
     # get the file name and path
     filepath = kwargs.get("filepath", "./") 
