@@ -26,7 +26,7 @@ Run a single data collection episode.
 """
 def run_episode(seed, env, policy, **kwargs):
     
-    if _abort.is_set(): 
+    if _abort_collect.is_set(): 
         return
     
     # initialise the data array    
@@ -84,14 +84,14 @@ def run_episode(seed, env, policy, **kwargs):
         timestep += 1
     
     # update the shared count
-    with _counter.get_lock():
-        _counter.value += len(sequence_data)
-        print('Collection: {}/{}'.format(_counter.value, _sample_size))
+    with _counter_collect.get_lock():
+        _counter_collect.value += len(sequence_data)
+        print('Collection: {}/{}'.format(_counter_collect.value, _sample_size))
         
         # Terminate training prematurely
-        if _counter.value >= _sample_size:
+        if _counter_collect.value >= _sample_size:
             print('Stopping worker early.')
-            _abort.set()
+            _abort_collect.set()
     
     # process the data into dictionary form
     if kwargs.get("output_format", "deque") == "dict":
@@ -112,12 +112,12 @@ Define the global variables for threaded
 collection algorithm.
 """
 def init_globals(counter, sample_size, abort):
-    global _counter
+    global _counter_collect
     global _sample_size
-    global _abort
+    global _abort_collect
     _sample_size = sample_size
-    _counter = counter
-    _abort = abort
+    _counter_collect = counter
+    _abort_collect = abort
 
 
 """

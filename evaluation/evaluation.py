@@ -10,75 +10,56 @@ Created on Mon Mar 21 21:34:17 2022
 Functions for testing the learned policies of offline RL agents 
 """
 
-import pygame
+import pygame, tqdm
 import numpy as np
+import pathos.multiprocessing as mp
+import multiprocessing
+import functools
 
 """
 Given a policy and a gym environment this function runs a specified number of
 test episodes.
 """
-def test_policy(env, policy, episodes, **kwargs):
-    
-    # run the policy for a set number of episodes
-    episode_reward, episode_timestep = [], []
-    states, actions, rewards, dones = [], [], [], []
-    
-    for ep in range(episodes): 
+def test_policy(seed, env, policy, **kwargs):
         
-        # reset the environmental parameters
-        state = env.reset()
-        timestep, total_reward, done = 0, 0, False 
+    # reset the environmental parameters
+    env.seed(seed)
+    state = env.reset()
+    timestep, total_reward, done = 0, 0, False 
+
+    # loop through the episode
+    while not done:
+
+        # take an action
+        action_output = policy.get_action(state=state)        
+        if len(action_output) > 1: action, log_prob = action_output[0], action_output[1]
+        else: action = action_output
         
-        # loop through the episode
-        while not done:
-            
-            # take an action and step the environment
-            action = policy.get_action(state=state)
-            next_state, reward, done, _ = env.step(action)   
-            
-            # display the environment
-            if kwargs.get("render", False):
-                env.render()
-            
-            # terminate if reached max timesteps
-            if timestep == kwargs.get("max_timestep", -1):
-                done = True
-            
-            # update the variables
-            state = next_state
-            policy.update()     
-            timestep += 1
-            total_reward += reward   
-            
-            # update the logs
-            states.append(state)
-            actions.append(action)
-            dones.append(done)
-            rewards.append(reward)
-            
-        # update the logs
-        episode_reward.append(total_reward)
-        episode_timestep.append(timestep)
+        # step the environment
+        next_state, reward, done, _ = env.step(action)   
+
+        # display the environment
+        if kwargs.get("render", False):
+            env.render()
+
+        # terminate if reached max timesteps
+        if timestep == kwargs.get("max_timestep", -1):
+            done = True
+
+        # update the variables
+        state = next_state
+        policy.update()     
+        timestep += 1
+        
+        # tally the reward
+        if kwargs.get("apply_discount", False): 
+            reward = reward * kwargs.get("discount", 0.99) ** timestep
+        total_reward += reward           
         
     # shut the window
     pygame.quit()
-    
-    # package results    
-    results = {
-        "reward": episode_reward,
-        "timestep": episode_timestep
-        }
-    
-    # package logged data
-    log = {
-        "state": states,
-        "action": actions,
-        "done": dones,
-        "reward": rewards,
-        "episodes": episodes
-    }
                 
-    return results, log
+    return total_reward, timestep
 
 
 """
@@ -170,6 +151,33 @@ def test_prediction(env, env_model, policy, horizon, **kwargs):
     
     return true_values, pred_values
 
+"""
+Get an estimate of the return of a policy 
+on the simglucose environment.
+"""
+def get_monte_carlo_return(env, policy, num_runs, **kwargs):
+    
+    # define the input function
+    input_func = functools.partial(
+        test_policy, env=env, 
+        policy=policy, 
+        **kwargs
+    )
+    
+    print('Workers Started Evaluating.')
+    
+    # define the pool and run the multiprocessing
+    pool = mp.Pool(kwargs.get("num_workers", 4))  
+    list_output = list(tqdm.tqdm(pool.imap(input_func, range(num_runs)), total=num_runs))
+    unpacked_list = [item[0] for item in list_output]
+    
+    print('Workers Finished.')
+    
+    # sum the rewards
+    reward_sum = np.sum(unpacked_list)
+    normed_reward = reward_sum/num_runs * (1 - kwargs.get("discount", 0.99))
+    
+    return normed_reward
 
 # TESTING -------------------------------------------------------------------
     
