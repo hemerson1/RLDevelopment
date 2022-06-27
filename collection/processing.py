@@ -153,12 +153,12 @@ def get_batch(memory, batch_size, device="cpu", **kwargs):
         
         # generate a non-repeating set of indices
         full_idx = np.arange(memory["state"].shape[0])
-        if shuffle: np.random.shuffle(full_idx)    
+        if shuffle: np.random.shuffle(full_idx)           
         chosen_idx = full_idx[:batch_size]
         
-        num_elems = 6
+        num_elems = 5
         format_lambda = lambda x: torch.FloatTensor(x[chosen_idx, :].reshape(batch_size, -1)).to(device)   
-        state, next_state, action, reward, done, weight = list(map(format_lambda, list(memory.values())[:num_elems]))
+        state, next_state, action, reward, done = list(map(format_lambda, list(memory.values())[:num_elems]))
                 
     # check if deque
     elif type(memory) is deque:

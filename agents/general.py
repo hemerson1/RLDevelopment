@@ -7,7 +7,8 @@ Created on Thu Apr 21 15:33:31 2022
 """
 
 import numpy as np
-import math, random
+import tensorflow as tf
+import math, random, torch
 
 """
 Add Gaussian Noise to the action output for 
@@ -116,6 +117,5 @@ def log_prob_class_wrapper(agent, **kwargs):
     agent.get_action = get_action_wrapper
     
     return agent
-        
-    
+
     

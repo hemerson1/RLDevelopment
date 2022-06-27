@@ -26,6 +26,7 @@ Run a single data collection episode.
 """
 def run_episode(seed, env, policy, **kwargs):
     
+    # abort the run if full
     if _abort_collect.is_set(): 
         return
     
@@ -62,7 +63,7 @@ def run_episode(seed, env, policy, **kwargs):
         sample = {
             "state": state, 
             "next_state": next_state, 
-            "action": action, 
+            "action": (action - 1.5*policy.bas)/(3*policy.bas), 
             "reward": reward, 
             "done": done, 
             "log_prob": log_prob,
@@ -73,7 +74,7 @@ def run_episode(seed, env, policy, **kwargs):
         # keep track in additional format
         log_states.append(state)
         log_next_states.append(next_state)
-        log_actions.append(action)
+        log_actions.append((action-1.5*policy.bas)/(3*policy.bas))
         log_rewards.append(reward)
         log_masks.append(kwargs.get("discount", 0.99))
         log_log_probs.append(log_prob)
@@ -94,17 +95,16 @@ def run_episode(seed, env, policy, **kwargs):
             _abort_collect.set()
     
     # process the data into dictionary form
-    if kwargs.get("output_format", "deque") == "dict":
-        sequence_data = dict(
-            states=np.array(log_states),
-            actions=np.array(log_actions),
-            log_probs=np.array(log_log_probs),
-            next_states=np.array(log_next_states),
-            rewards=np.array(log_rewards),
-            masks=np.array(log_masks)            
-        )            
+    sequence_data_dict = dict(
+        states=np.array(log_states, dtype=np.float32).reshape(-1, log_states[0].shape[-1]),
+        actions=np.array(log_actions, dtype=np.float32).reshape(-1, log_actions[0].shape[-1]),
+        log_probs=np.array(log_log_probs, dtype=np.float32).reshape(-1, 1),
+        next_states=np.array(log_next_states, dtype=np.float32).reshape(-1, log_states[0].shape[-1]),
+        rewards=np.array(log_rewards, dtype=np.float32).reshape(-1, 1),
+        masks=np.array(log_masks, dtype=np.float32).reshape(-1, 1)            
+    )            
     
-    return sequence_data
+    return sequence_data, sequence_data_dict
 
 
 """
@@ -152,33 +152,28 @@ def collect_sample(env, policy, sample_size, **kwargs):
     
     # run the multiprocessing
     list_output = pool.map(input_func, pool_args())
-    clean_list = [item for item in list_output if item] 
+    seq_data, dict_data = zip(*[item for item in list_output if item]) 
     
     # initialise the memory and filter out values
-    output_format = kwargs.get("output_format", "deque")
-    if output_format == "deque": 
-        memory = deque(maxlen=sample_size)   
-        clean_list = list(itertools.chain.from_iterable(clean_list))    
-        memory.extend(clean_list) 
+    memory_deq = deque(maxlen=sample_size)   
+    combined_list = list(itertools.chain.from_iterable(seq_data))    
+    memory_deq.extend(combined_list) 
     
-    # cycle through the trajectories and append to a single list
-    elif output_format == "dict":
-        
-        memory = dict(
-          model_filename=kwargs.get("filename", "training_sample"),
-          behavior_std=kwargs.get("std", 0.01),
-          trajectories=dict(
-              states=[],
-              actions=[],
-              log_probs=[],
-              next_states=[],
-              rewards=[],
-              masks=[])
-        )
-        
-        for traj in clean_list:
-            for k, v in traj.items():
-                memory['trajectories'][k].append(v)        
+    # cycle through the trajectories and append to a single list        
+    memory_dict = dict(
+      model_filename=kwargs.get("filename", "training_sample"),
+      behavior_std=kwargs.get("std", 0.01),
+      trajectories=dict(
+          states=[],
+          actions=[],
+          log_probs=[],
+          next_states=[],
+          rewards=[],
+          masks=[])
+    )        
+    for traj in dict_data:
+        for k, v in traj.items():
+            memory_dict['trajectories'][k].append(v)        
         
     # get the file name and path
     filepath = kwargs.get("filepath", "./") 
@@ -186,9 +181,13 @@ def collect_sample(env, policy, sample_size, **kwargs):
     
     # save the memory as a pickle file
     with open(filepath + filename + '.pkl', 'wb') as file:
-        pkl.dump(memory, file)
+        pkl.dump(memory_dict, file)
         
-    return memory
+    # save the memory as a pickle file
+    with open(filepath + filename + "_training" + '.pkl', 'wb') as file:
+        pkl.dump(memory_deq, file)
+        
+    return memory_dict
 
 
 """

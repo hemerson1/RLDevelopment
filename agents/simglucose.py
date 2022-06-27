@@ -2,10 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-import math, random, gym
+import math, random, gym, torch
 import matplotlib.pyplot as plt
+import tensorflow as tf
 from datetime import datetime
 from gym.envs.registration import register
+
+from .general import get_log_prob
 
 # Register the child gym environment 
 register(
@@ -13,7 +16,6 @@ register(
     entry_point='simglucose.envs:T1DSimEnv',
     kwargs={'patient_name': 'child#001'}
 )
-
 
 """
 A pid controller to control basal insulin dosing for child#1 
@@ -126,11 +128,11 @@ class simglucose_pid:
 Wrap the child#1 simglucose environment to modify the 
 state, reward and add automatic bolus dosing.
 """        
-def simglucose_class_wrapper(env, **kwargs):  
+def simglucose_class_wrapper(env, **kwargs): 
     
     # Set parameters
     horizon = kwargs.get("horizon", 1)
-    use_condense_state = kwargs.get("use_condense_state", False)
+    use_condense_state = kwargs.get("use_condense_state", True)
     if use_condense_state: horizon = 80
     
     # Patient Parameters
@@ -223,8 +225,7 @@ def simglucose_class_wrapper(env, **kwargs):
             state, _ = condense_state(
                 state=state,
                 horizon=horizon
-            )
-        
+            )        
         return state
     
     # Define the new functions
@@ -363,4 +364,45 @@ def display_glucose_prediction(true_values, pred_values):
     axs[1].axis(ymin=0.0, ymax=(max(true_action) * 1.4))
     axs[1].set_ylabel("Basal \n(U/min)")
 
+
+
+"""
+Ensure that a torch-based learning algorithm can 
+handle tensorflow and numpy inputs.
+"""
+def RL_class_wrapper(agent, **kwargs):
+    
+    get_action = agent.__call__
+        
+    """
+    Normalise the data and handle numpy inputs.
+    """
+    def get_action_wrapper(state):
+        
+        # get the input type
+        state_type = "numpy"
+        if tf.is_tensor(state):
+            state_type = "tensorflow" 
+            state.numpy()
+            
+        # convert to the correct form
+        if len(state.shape) == 1:
+            state = state[None, :]
+        
+        # convert to torch and feed into model
+        state = tf.convert_to_tensor((state - agent.state_mean)/agent.state_std)        
+        _, action, log_prob = get_action(state)    
+        
+        if state_type == "numpy":
+            action = action.numpy()* 3.0*agent.bas + 1.5*agent.bas
+            log_prob = log_prob.numpy()
+        
+        return action, log_prob
+    
+    # reassign function
+    agent.get_action = get_action_wrapper
+    
+    return agent
+        
+    
     

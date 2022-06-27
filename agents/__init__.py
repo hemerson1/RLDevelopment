@@ -17,5 +17,6 @@ from .general import (
 from .openai_gym import lunar_lander_pid
 from .simglucose import (
     simglucose_pid, simglucose_class_wrapper, glucose_metrics,
-    magni_reward, display_glucose_prediction, condense_state
+    magni_reward, display_glucose_prediction, condense_state,
+    RL_class_wrapper
 )

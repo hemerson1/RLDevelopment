@@ -21,6 +21,8 @@ Given a policy and a gym environment this function runs a specified number of
 test episodes.
 """
 def test_policy(seed, env, policy, **kwargs):
+    
+    import torch
         
     # reset the environmental parameters
     env.seed(seed)
@@ -31,7 +33,7 @@ def test_policy(seed, env, policy, **kwargs):
     while not done:
 
         # take an action
-        action_output = policy.get_action(state=state)        
+        action_output = policy.get_action(state=state)  
         if len(action_output) > 1: action, log_prob = action_output[0], action_output[1]
         else: action = action_output
         
@@ -164,14 +166,20 @@ def get_monte_carlo_return(env, policy, num_runs, **kwargs):
         **kwargs
     )
     
-    print('Workers Started Evaluating.')
+    # run with more workers
+    if kwargs.get("num_workers", 1) > 1:
     
-    # define the pool and run the multiprocessing
-    pool = mp.Pool(kwargs.get("num_workers", 4))  
-    list_output = list(tqdm.tqdm(pool.imap(input_func, range(num_runs)), total=num_runs))
-    unpacked_list = [item[0] for item in list_output]
-    
-    print('Workers Finished.')
+        # define the pool and run the multiprocessing
+        print('Workers Started Evaluating.')
+        pool = mp.Pool(kwargs.get("num_workers", 4))  
+        list_output = list(tqdm.tqdm(pool.imap(input_func, range(num_runs)), total=num_runs))
+        unpacked_list = [item[0] for item in list_output]
+        print('Workers Finished.')
+        
+    else:
+        unpacked_list = []
+        for s in range(num_runs):
+            unpacked_list.append(input_func(s)[0])            
     
     # sum the rewards
     reward_sum = np.sum(unpacked_list)
