@@ -26,7 +26,7 @@ class simglucose_pid:
     def __init__(self, **kwargs):
         
         # Child 1 Params
-        self.bas = 1.142 * (34.556/6000) * 3
+        self.bas = 1.142*(34.556/6000)*3
         self.target_blood_glucose = 144 
         self.integrated_state = 0
         self.previous_error = 0   
@@ -63,7 +63,7 @@ class simglucose_pid:
         self.previous_error = error
 
         # get the final dose output
-        action = np.array([(p_act + i_act + d_act + self.bas) / 3], dtype=np.float32)
+        action = np.array([(p_act + i_act + d_act + self.bas)/3], dtype=np.float32)
         
         # stops actions from seperate predictions affecting one another
         if not self.conserve_state:
@@ -233,6 +233,26 @@ def simglucose_class_wrapper(env, **kwargs):
     env.reset = reset_wrapper        
     
     return env
+
+
+"""
+A simple basal-bolus controller which just provides a continuous 
+stream of basal insulin at a constant rate.
+"""
+class simglucose_basal:
+    
+    def __init__(self):
+        # Child 1 Params
+        self.bas = 1.142*(34.556/6000)*3
+            
+    def reset(self):
+        pass
+    
+    def get_action(self, state):
+        return np.array([self.bas/3])
+    
+    def update(self):
+        pass
 
 """
 Display the actions and achieved blood glucose values of 

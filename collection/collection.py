@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import pathos.multiprocessing as mp
 import multiprocessing
 import functools, itertools
+import tensorflow as tf
 
 from .processing import get_batch
 
@@ -37,6 +38,8 @@ def run_episode(seed, env, policy, **kwargs):
     
     # reset the environmental parameters
     env.seed(seed)
+    np.random.seed(seed)    
+    
     state = env.reset()
     done, timestep, log_prob = False, 0, 0.0
 
@@ -65,9 +68,8 @@ def run_episode(seed, env, policy, **kwargs):
             "next_state": next_state, 
             "action": (action - 1.5*policy.bas)/(3*policy.bas), 
             "reward": reward, 
-            "done": done, 
+            "mask": 1-done, 
             "log_prob": log_prob,
-            "mask": kwargs.get("discount", 0.99)
         }
         sequence_data.append(sample)
         
@@ -76,7 +78,7 @@ def run_episode(seed, env, policy, **kwargs):
         log_next_states.append(next_state)
         log_actions.append((action-1.5*policy.bas)/(3*policy.bas))
         log_rewards.append(reward)
-        log_masks.append(kwargs.get("discount", 0.99))
+        log_masks.append(1-done)
         log_log_probs.append(log_prob)
 
         # update the variables

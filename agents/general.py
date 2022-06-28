@@ -92,7 +92,7 @@ def get_log_prob(action, **kwargs):
     
     # calculate the log prob
     norm_diff = (action - mean)/std
-    log_prob = -(np.log(std) + 0.5 * (np.log(2 * math.pi) + np.square(norm_diff)))
+    log_prob = -(np.log(std) + 0.5*(np.log(2 * math.pi) + np.square(norm_diff)))
     
     return log_prob
 

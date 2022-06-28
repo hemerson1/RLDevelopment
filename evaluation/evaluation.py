@@ -14,6 +14,7 @@ import pygame, tqdm
 import numpy as np
 import pathos.multiprocessing as mp
 import multiprocessing
+import tensorflow as tf
 import functools
 
 """
@@ -21,10 +22,10 @@ Given a policy and a gym environment this function runs a specified number of
 test episodes.
 """
 def test_policy(seed, env, policy, **kwargs):
-    
-    import torch
         
     # reset the environmental parameters
+    tf.random.set_seed(seed)
+    np.random.seed(seed)
     env.seed(seed)
     state = env.reset()
     timestep, total_reward, done = 0, 0, False 
@@ -158,7 +159,7 @@ Get an estimate of the return of a policy
 on the simglucose environment.
 """
 def get_monte_carlo_return(env, policy, num_runs, **kwargs):
-    
+   
     # define the input function
     input_func = functools.partial(
         test_policy, env=env, 
@@ -179,7 +180,9 @@ def get_monte_carlo_return(env, policy, num_runs, **kwargs):
     else:
         unpacked_list = []
         for s in range(num_runs):
-            unpacked_list.append(input_func(s)[0])            
+            print('Run: {}/{}'.format(s, num_runs))
+            output = input_func(s)
+            unpacked_list.append(output[0]) 
     
     # sum the rewards
     reward_sum = np.sum(unpacked_list)
