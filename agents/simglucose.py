@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-import math, random, gym, torch
+import math, random, gym
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from datetime import datetime
