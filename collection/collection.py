@@ -61,12 +61,12 @@ def run_episode(seed, env, policy, **kwargs):
         # terminate if reached max timesteps
         if timestep == kwargs.get("max_timestep", -1):
             done = True
-
+            
         # log the data
         sample = {
             "state": state, 
             "next_state": next_state, 
-            "action": (action - 1.5*policy.bas)/(3*policy.bas), 
+            "action": (action - 1.5*policy.bas)/(1.5*policy.bas), 
             "reward": reward, 
             "mask": 1-done, 
             "log_prob": log_prob,
@@ -76,7 +76,7 @@ def run_episode(seed, env, policy, **kwargs):
         # keep track in additional format
         log_states.append(state)
         log_next_states.append(next_state)
-        log_actions.append((action-1.5*policy.bas)/(3*policy.bas))
+        log_actions.append((action-1.5*policy.bas)/(1.5*policy.bas))
         log_rewards.append(reward)
         log_masks.append(1-done)
         log_log_probs.append(log_prob)

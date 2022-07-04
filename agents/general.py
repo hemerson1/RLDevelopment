@@ -86,13 +86,13 @@ def get_log_prob(action, **kwargs):
     # get the parameters
     offset = kwargs.get("offset", 0)
     std = kwargs.get("std", 1)
-    
+            
     # get the mean and std using the normalised action
     mean = action + np.random.normal(loc=offset, scale=std, size=action.shape)
     
     # calculate the log prob
     norm_diff = (action - mean)/std
-    log_prob = -(np.log(std) + 0.5*(np.log(2 * math.pi) + np.square(norm_diff)))
+    log_prob = -(np.log(std) + 0.5*(np.log(2*np.pi) + np.square(norm_diff)))
     
     return log_prob
 

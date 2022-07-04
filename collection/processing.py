@@ -13,7 +13,6 @@ algorithms.
 
 import numpy as np
 import random
-import torch
 from collections import deque
 
 """
@@ -21,6 +20,8 @@ Given a sample of data this function unpacks the batch and normalises the
 state and action space. 
 """
 def clean_sample(memory, **kwargs):
+    
+    import torch
     
     """
     TODO:

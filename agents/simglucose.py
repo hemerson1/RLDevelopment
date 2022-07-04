@@ -414,7 +414,7 @@ def RL_class_wrapper(agent, **kwargs):
         _, action, log_prob = get_action(state)    
         
         if state_type == "numpy":
-            action = action.numpy()* 3.0*agent.bas + 1.5*agent.bas
+            action = action.numpy()* 1.5*agent.bas + 1.5*agent.bas
             log_prob = log_prob.numpy()
         
         return action, log_prob
