@@ -7,8 +7,12 @@ Created on Thu Apr 21 15:33:31 2022
 """
 
 import numpy as np
-import tensorflow as tf
 import math, random
+
+
+#########################
+# TODO: remove tensorflow
+#########################
 
 """
 Add Gaussian Noise to the action output for 

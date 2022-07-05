@@ -4,9 +4,12 @@
 import numpy as np
 import math, random, gym
 import matplotlib.pyplot as plt
-import tensorflow as tf
 from datetime import datetime
 from gym.envs.registration import register
+
+#####################################
+# TODO: remove tensorflow dependency
+#####################################
 
 from .general import get_log_prob
 

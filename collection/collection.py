@@ -18,7 +18,6 @@ import matplotlib.pyplot as plt
 import pathos.multiprocessing as mp
 import multiprocessing
 import functools, itertools
-import tensorflow as tf
 
 from .processing import get_batch
 
@@ -33,8 +32,8 @@ def run_episode(seed, env, policy, **kwargs):
     
     # initialise the data array    
     sequence_data = []
-    log_states, log_actions, log_next_states = [], [], []
-    log_log_probs, log_masks, log_rewards = [], [], []
+    log_obs, log_actions, log_next_obs = [], [], []
+    log_terminals, log_rewards = [], []
     
     # reset the environmental parameters
     env.seed(seed)
@@ -63,23 +62,11 @@ def run_episode(seed, env, policy, **kwargs):
             done = True
             
         # log the data
-        sample = {
-            "state": state, 
-            "next_state": next_state, 
-            "action": (action - 1.5*policy.bas)/(1.5*policy.bas), 
-            "reward": reward, 
-            "mask": 1-done, 
-            "log_prob": log_prob,
-        }
-        sequence_data.append(sample)
-        
-        # keep track in additional format
-        log_states.append(state)
-        log_next_states.append(next_state)
-        log_actions.append((action-1.5*policy.bas)/(1.5*policy.bas))
+        log_obs.append(state)
+        log_next_obs.append(next_state)
+        log_actions.append(action)
         log_rewards.append(reward)
-        log_masks.append(1-done)
-        log_log_probs.append(log_prob)
+        log_terminals.append(done)
 
         # update the variables
         state = next_state
@@ -88,7 +75,7 @@ def run_episode(seed, env, policy, **kwargs):
     
     # update the shared count
     with _counter_collect.get_lock():
-        _counter_collect.value += len(sequence_data)
+        _counter_collect.value += len(log_obs)
         print('Collection: {}/{}'.format(_counter_collect.value, _sample_size))
         
         # Terminate training prematurely
@@ -98,15 +85,14 @@ def run_episode(seed, env, policy, **kwargs):
     
     # process the data into dictionary form
     sequence_data_dict = dict(
-        states=np.array(log_states, dtype=np.float32).reshape(-1, log_states[0].shape[-1]),
+        observations=np.array(log_obs, dtype=np.float32).reshape(-1, log_obs[0].shape[-1]),
         actions=np.array(log_actions, dtype=np.float32).reshape(-1, log_actions[0].shape[-1]),
-        log_probs=np.array(log_log_probs, dtype=np.float32).reshape(-1, 1),
-        next_states=np.array(log_next_states, dtype=np.float32).reshape(-1, log_states[0].shape[-1]),
+        next_observations=np.array(log_next_obs, dtype=np.float32).reshape(-1, log_obs[0].shape[-1]),
         rewards=np.array(log_rewards, dtype=np.float32).reshape(-1, 1),
-        masks=np.array(log_masks, dtype=np.float32).reshape(-1, 1)            
+        terminals=np.array(log_terminals, dtype=np.float32).reshape(-1, 1)            
     )            
     
-    return sequence_data, sequence_data_dict
+    return sequence_data_dict
 
 
 """
@@ -154,24 +140,18 @@ def collect_sample(env, policy, sample_size, **kwargs):
     
     # run the multiprocessing
     list_output = pool.map(input_func, pool_args())
-    seq_data, dict_data = zip(*[item for item in list_output if item]) 
-    
-    # initialise the memory and filter out values
-    memory_deq = deque(maxlen=sample_size)   
-    combined_list = list(itertools.chain.from_iterable(seq_data))    
-    memory_deq.extend(combined_list) 
+    dict_data = [item for item in list_output if item] 
     
     # cycle through the trajectories and append to a single list        
     memory_dict = dict(
       model_filename=kwargs.get("filename", "training_sample"),
       behavior_std=kwargs.get("std", 0.01),
       trajectories=dict(
-          states=[],
+          observations=[],
           actions=[],
-          log_probs=[],
-          next_states=[],
+          next_observations=[],
           rewards=[],
-          masks=[])
+          terminals=[])
     )        
     for traj in dict_data:
         for k, v in traj.items():
@@ -184,10 +164,6 @@ def collect_sample(env, policy, sample_size, **kwargs):
     # save the memory as a pickle file
     with open(filepath + filename + '.pkl', 'wb') as file:
         pkl.dump(memory_dict, file)
-        
-    # save the memory as a pickle file
-    with open(filepath + filename + "_training" + '.pkl', 'wb') as file:
-        pkl.dump(memory_deq, file)
         
     return memory_dict
 
