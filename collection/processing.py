@@ -14,21 +14,19 @@ algorithms.
 import numpy as np
 import random
 from collections import deque
+import torch
 
 """
 Given a sample of data this function unpacks the batch and normalises the 
 state and action space. 
+
+####################################
+TODO: remove or clean this function 
+####################################
+
 """
 def clean_sample(memory, **kwargs):
-    
-    import torch
-    
-    """
-    TODO:
-    - may want to brake this function into smaller components.
-    
-    """
-    
+        
     # set the parameters
     norm_reward = kwargs.get("norm_reward", False)
     reward_noise = kwargs.get("reward_noise", 0.0)
@@ -196,6 +194,40 @@ def create_split(data, split):
         train_data[key] = parts[1]
         
     return train_data, test_data
+
+
+"""
+Convert the dataset to the appropriate form.
+"""
+def unpack_dataset(dataset, **kwargs):
+        
+    # reshape the input  
+    data = dataset["trajectories"]
+    state_dim, action_dim = np.array(data["observations"]).shape[-1], np.array(data["actions"]).shape[-1]
+    data["observations"] = np.array(data["observations"], dtype=np.float32).reshape(-1, state_dim)
+    data["next_observations"] = np.array(data["next_observations"], dtype=np.float32).reshape(-1, state_dim)
+    data["actions"] = np.array(data["actions"], dtype=np.float32).reshape(-1, action_dim)
+    data["rewards"] = np.array(data["rewards"], dtype=np.float32).reshape(-1, 1)
+    data["terminals"] = np.array(data["terminals"], dtype=np.float32).reshape(-1, 1)
+    
+    # calculate the means and std
+    stats = {
+        "obs_mean": data["observations"].mean(axis=0), 
+        "obs_std": data["observations"].std(axis=0), 
+        "action_mean": data["actions"].mean(axis=0), 
+        "action_std": data["actions"].std(axis=0), 
+    }
+    
+    return data, stats
+
+"""
+Norm the state and action space.
+"""
+def norm_dataset(data, stats):
+    data["observations"] = (data["observations"] - stats["obs_mean"])/stats["obs_std"]
+    data["next_observations"] = (data["next_observations"] - stats["obs_mean"])/stats["obs_std"]
+    data["actions"] = (data["actions"] - stats["action_mean"])/stats["action_std"]
+    return data   
 
 
 # TESTING -------------------------------------------------------------------

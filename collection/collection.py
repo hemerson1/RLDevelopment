@@ -60,7 +60,7 @@ def run_episode(seed, env, policy, **kwargs):
         # terminate if reached max timesteps
         if timestep == kwargs.get("max_timestep", -1):
             done = True
-            
+        
         # log the data
         log_obs.append(state)
         log_next_obs.append(next_state)
@@ -130,7 +130,7 @@ def collect_sample(env, policy, sample_size, **kwargs):
         for i in range(sample_size):
             if not abort_event.is_set():
                 yield i    
-    
+                
     # define the pool
     pool = mp.Pool(
         kwargs.get("num_workers", 4), 

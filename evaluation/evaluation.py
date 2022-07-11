@@ -14,7 +14,7 @@ import pygame, tqdm
 import numpy as np
 import pathos.multiprocessing as mp
 import multiprocessing
-import tensorflow as tf
+import torch
 import functools
 
 """
@@ -24,7 +24,7 @@ test episodes.
 def test_policy(seed, env, policy, **kwargs):
         
     # reset the environmental parameters
-    tf.random.set_seed(seed)
+    torch.manual_seed(seed)
     np.random.seed(seed)
     env.seed(seed)
     state = env.reset()

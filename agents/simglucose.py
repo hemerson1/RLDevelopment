@@ -7,10 +7,6 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 from gym.envs.registration import register
 
-#####################################
-# TODO: remove tensorflow dependency
-#####################################
-
 from .general import get_log_prob
 
 # Register the child gym environment 
@@ -53,8 +49,12 @@ class simglucose_pid:
     """
     def get_action(self, state):
         
+        # update for time-series decomposition
+        current_bg = state[:, 0]        
+        if len(state) < 11: current_bg += state[:, 1]           
+        
         # proportional control
-        error = self.target_blood_glucose - state[:, 0]
+        error = self.target_blood_glucose - current_bg
         p_act = self.params[0] * error
 
         # integral control        
@@ -86,7 +86,7 @@ class simglucose_pid:
         max_timesteps = 480
         
         # Wrap the environment
-        env = env.simglucose_class_wrapper(env)
+        env = simglucose_class_wrapper(env)
         
         for ep in range(1, episodes + 1):
             
@@ -136,6 +136,7 @@ def simglucose_class_wrapper(env, **kwargs):
     # Set parameters
     horizon = kwargs.get("horizon", 1)
     use_condense_state = kwargs.get("use_condense_state", True)
+    condense_state_type = kwargs.get("condense_state_type", "default")
     if use_condense_state: horizon = 80
     
     # Patient Parameters
@@ -186,8 +187,8 @@ def simglucose_class_wrapper(env, **kwargs):
         
         # Include historical data in state ---------------------------
         
-        env.logged_states.insert(0, state)
-        padding_states = [env.logged_states[-min(horizon, len(env.logged_states))]] * (horizon - len(env.logged_states))
+        env.logged_states.insert(0, state)        
+        padding_states = [env.logged_states[-1]] * max((horizon - len(env.logged_states)), 0)
         state = np.array(env.logged_states[:horizon] + padding_states, dtype=float).reshape(1, -1)
         
         # Condense the state ----------------------------------
@@ -195,7 +196,8 @@ def simglucose_class_wrapper(env, **kwargs):
         if use_condense_state:
             state, _ = condense_state(
                 state=state,
-                horizon=horizon
+                horizon=horizon,
+                condense_state_type=condense_state_type
             )
                                     
         return state, reward, done, info   
@@ -219,15 +221,16 @@ def simglucose_class_wrapper(env, **kwargs):
         state = np.array([blood_glucose[0], 0, bas, time_in_mins])       
         
         # include historical data
-        env.logged_states.insert(0, state)
-        padding_states = [env.logged_states[-min(horizon, len(env.logged_states))]] * (horizon - len(env.logged_states))
+        env.logged_states.insert(0, state)        
+        padding_states = [env.logged_states[-1]] * max((horizon - len(env.logged_states)), 0)
         state = np.array(env.logged_states[:horizon] + padding_states, dtype=float).reshape(1, -1)
         
         # condense the state 
         if use_condense_state:
             state, _ = condense_state(
                 state=state,
-                horizon=horizon
+                horizon=horizon,
+                condense_state_type=condense_state_type,
             )        
         return state
     
@@ -332,20 +335,52 @@ def magni_reward(blood_glucose):
 Transform the (horizon, 4) state into a condensed metric incorporating
 all the important information.
 """
-def condense_state(state, horizon=80):
+def condense_state(state, horizon=80, condense_state_type="default", **kwargs):
 
     # extract the relevant metrics
     state = state.reshape(-1, horizon, 4)       
-    bg_intervals = state[:, list(range(0, horizon, 10)) + [horizon - 1], 0].reshape(-1, 9)  
-    mob = np.sum(state[:, :, 1] * np.arange(horizon)/(horizon - 1), axis=1).reshape(-1, 1)
-    iob = np.sum(state[:, :, 2] * np.arange(horizon)/(horizon - 1), axis=1).reshape(-1, 1)
-    current_time = state[:, -1, -1].reshape(-1, 1)        
-
-    # combine the metrics
-    trans_state = np.concatenate([bg_intervals, mob, iob, current_time], axis=1)        
+    
+    # convert to: (30-min bg over 4hrs, mob, iob, time)
+    if condense_state_type == "default":
+        bg_intervals = state[:, list(range(0, horizon, 10)) + [horizon - 1], 0].reshape(-1, 9)  
+        mob = np.sum(state[:, :, 1] * np.arange(horizon)/(horizon - 1), axis=1).reshape(-1, 1)
+        iob = np.sum(state[:, :, 2] * np.arange(horizon)/(horizon - 1), axis=1).reshape(-1, 1)
+        current_time = state[:, -1, -1].reshape(-1, 1)
+        trans_state = np.concatenate([bg_intervals, mob, iob, current_time], axis=1)
+    
+    # convert to: (season and trend data for bg, insulin, meals + time) 
+    elif condense_state_type == "time_series_decomp": 
+        trans_state = time_series_decomp(state, **kwargs)  
+    
+    # get the mean and standard deviation
     stats = [np.mean(trans_state, axis=0), np.std(trans_state, axis=0)]
 
-    return trans_state, stats     
+    return trans_state, stats   
+
+
+"""
+Decompose time-series data into seasonality and trend
+"""
+def time_series_decomp(observations, **kwargs):
+    
+    # get parameters
+    kernel_size = kwargs.get("kernel_size", 24)
+        
+    # break into channels
+    time_channel = observations[:, 0, -1]  
+    sensor_channel = observations[:, :, :-1]
+
+    # get the trend data and seasonal data
+    trend_channel = np.mean(sensor_channel[:, :kernel_size, :], axis=1)
+    season_channel = sensor_channel[:, 0, :] - trend_channel    
+    
+    # combine the data
+    combined_channel = np.concatenate(
+        [np.vstack([season_channel, trend_channel]).T.ravel(), time_channel],
+        axis=-1
+    ).reshape(1, -1)
+    
+    return combined_channel
 
 
 """
@@ -387,45 +422,5 @@ def display_glucose_prediction(true_values, pred_values):
     axs[1].axis(ymin=0.0, ymax=(max(true_action) * 1.4))
     axs[1].set_ylabel("Basal \n(U/min)")
 
-
-
-"""
-Ensure that a torch-based learning algorithm can 
-handle tensorflow and numpy inputs.
-"""
-def RL_class_wrapper(agent, **kwargs):
-    
-    get_action = agent.__call__
-        
-    """
-    Normalise the data and handle numpy inputs.
-    """
-    def get_action_wrapper(state):
-        
-        # get the input type
-        state_type = "numpy"
-        if tf.is_tensor(state):
-            state_type = "tensorflow" 
-            state.numpy()
-            
-        # convert to the correct form
-        if len(state.shape) == 1:
-            state = state[None, :]
-        
-        # convert to torch and feed into model
-        state = tf.convert_to_tensor((state - agent.state_mean)/agent.state_std)        
-        _, action, log_prob = get_action(state)    
-        
-        if state_type == "numpy":
-            action = action.numpy()* 1.5*agent.bas + 1.5*agent.bas
-            log_prob = log_prob.numpy()
-        
-        return action, log_prob
-    
-    # reassign function
-    agent.get_action = get_action_wrapper
-    
-    return agent
-        
     
     
