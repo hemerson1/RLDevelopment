@@ -16,6 +16,7 @@ import pathos.multiprocessing as mp
 import multiprocessing
 import torch
 import functools
+import matplotlib.pyplot as plt
 
 """
 Given a policy and a gym environment this function runs a specified number of
@@ -29,6 +30,10 @@ def test_policy(seed, env, policy, **kwargs):
     env.seed(seed)
     state = env.reset()
     timestep, total_reward, done = 0, 0, False 
+    
+    
+    # REMOVE
+    states, actions = [], []
 
     # loop through the episode
     while not done:
@@ -39,7 +44,11 @@ def test_policy(seed, env, policy, **kwargs):
         else: action = action_output
         
         # step the environment
-        next_state, reward, done, _ = env.step(action)   
+        next_state, reward, done, _ = env.step(action) 
+        
+        # REMOVE
+        states.append(next_state[:, 0] + next_state[:, 1])
+        actions.append(action[0])
 
         # display the environment
         if kwargs.get("render", False):
@@ -57,7 +66,17 @@ def test_policy(seed, env, policy, **kwargs):
         # tally the reward
         if kwargs.get("apply_discount", False): 
             reward = reward * kwargs.get("discount", 0.99) ** timestep
-        total_reward += reward           
+        total_reward += reward    
+        
+        
+    # REMOVE
+    if kwargs.get("visualise", False):
+        bas = 1.142*(34.556/6000)*3
+        actions = [a/bas for a in actions]
+        plt.plot(range(len(states)), states)
+        plt.show()
+        plt.plot(range(len(actions)), actions)
+        plt.show()
         
     # shut the window
     pygame.quit()
@@ -159,7 +178,11 @@ Get an estimate of the return of a policy
 on the simglucose environment.
 """
 def get_monte_carlo_return(env, policy, num_runs, **kwargs):
-   
+    
+    # visualise an episode
+    if kwargs.get("visualise", False):
+        num_runs = 1
+        
     # define the input function
     input_func = functools.partial(
         test_policy, env=env, 

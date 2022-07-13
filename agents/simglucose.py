@@ -177,7 +177,7 @@ def simglucose_class_wrapper(env, **kwargs):
         
         # step the environment
         blood_glucose, _, done, info = step(insulin_dose) 
-        
+                
         # Modify the outputs ------------------------------
         
         reward = magni_reward(blood_glucose)
@@ -321,13 +321,17 @@ def glucose_metrics(logs, window=480):
 
     plt.show()
     
+#########################################################
+# TODO: check conversion to numpy doesn't affect results
+#########################################################
+    
 """
 Use the Magni risk function to calculate the reward for 
 the current blood glucose value.
 """   
 def magni_reward(blood_glucose):
     p1, p2, p3 = 3.5506, 0.8353, 3.7932
-    reward = -10 * (p2 * (math.log(max(1, blood_glucose[0]))**p2 - p3)) ** 2 
+    reward = -10 * (p1 * (np.log(np.maximum(np.zeros(1), blood_glucose[0]))**p2 - p3)) ** 2 
     return reward
 
 
