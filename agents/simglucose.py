@@ -184,7 +184,7 @@ def simglucose_class_wrapper(env, **kwargs):
         current_time = env.env.time_hist[-1]
         time_in_mins = ((current_time.hour * 60) + current_time.minute)        
         state = np.array([blood_glucose[0], current_meal, insulin_dose, time_in_mins], dtype=float)   
-        
+                
         # Include historical data in state ---------------------------
         
         env.logged_states.insert(0, state)        
@@ -199,7 +199,7 @@ def simglucose_class_wrapper(env, **kwargs):
                 horizon=horizon,
                 condense_state_type=condense_state_type
             )
-                                    
+            
         return state, reward, done, info   
     
     """
@@ -232,6 +232,7 @@ def simglucose_class_wrapper(env, **kwargs):
                 horizon=horizon,
                 condense_state_type=condense_state_type,
             )        
+        
         return state
     
     # Define the new functions
@@ -331,7 +332,7 @@ the current blood glucose value.
 """   
 def magni_reward(blood_glucose):
     p1, p2, p3 = 3.5506, 0.8353, 3.7932
-    reward = -10 * (p1 * (np.log(np.maximum(np.zeros(1), blood_glucose[0]))**p2 - p3)) ** 2 
+    reward = -10 * (p1 * (np.log(np.maximum(np.ones(1), blood_glucose[0]))**p2 - p3)) ** 2 
     return reward
 
 
@@ -358,7 +359,7 @@ def condense_state(state, horizon=80, condense_state_type="default", **kwargs):
     
     # get the mean and standard deviation
     stats = [np.mean(trans_state, axis=0), np.std(trans_state, axis=0)]
-
+    
     return trans_state, stats   
 
 
@@ -369,21 +370,22 @@ def time_series_decomp(observations, **kwargs):
     
     # get parameters
     kernel_size = kwargs.get("kernel_size", 24)
+    batch_size = observations.shape[0]
         
     # break into channels
-    time_channel = observations[:, 0, -1]  
+    time_channel = observations[:, 0, -1]
     sensor_channel = observations[:, :, :-1]
 
     # get the trend data and seasonal data
     trend_channel = np.mean(sensor_channel[:, :kernel_size, :], axis=1)
     season_channel = sensor_channel[:, 0, :] - trend_channel    
     
-    # combine the data
-    combined_channel = np.concatenate(
-        [np.vstack([season_channel, trend_channel]).T.ravel(), time_channel],
-        axis=-1
-    ).reshape(1, -1)
-    
+    combined_channel = np.zeros((batch_size, 2*observations.shape[-1]-1))    
+    for row in range(combined_channel.shape[-1]):        
+        if (row == (combined_channel.shape[-1] - 1)): combined_channel[:, row] = time_channel
+        elif row % 2 == 0: combined_channel[:, row] = season_channel[:, row//2]
+        else: combined_channel[:, row] = trend_channel[:, (row-1)//2]
+
     return combined_channel
 
 

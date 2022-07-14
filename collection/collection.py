@@ -41,18 +41,18 @@ def run_episode(seed, env, policy, **kwargs):
     
     state = env.reset()
     done, timestep, log_prob = False, 0, 0.0
-
+    
     # loop through the episode
     while not done:
 
         # take an action 
-        action_output = policy.get_action(state=state)        
+        action_output = policy.get_action(state=np.copy(state))        
         if len(action_output) > 1: action, log_prob = action_output[0], action_output[1]
         else: action = action_output
         
         # step the environment
         next_state, reward, done, _ = env.step(action)  
-
+        
         # add a termination penalty
         if done and timestep != kwargs.get("max_timestep", -1):
             reward += kwargs.get("termination_penalty", 0)
@@ -69,7 +69,7 @@ def run_episode(seed, env, policy, **kwargs):
         log_terminals.append(done)
 
         # update the variables
-        state = next_state
+        state = np.copy(next_state)
         policy.update()     
         timestep += 1
     
@@ -82,7 +82,7 @@ def run_episode(seed, env, policy, **kwargs):
         if _counter_collect.value >= _sample_size:
             print('Stopping worker early.')
             _abort_collect.set()
-    
+        
     # process the data into dictionary form
     sequence_data_dict = dict(
         observations=np.array(log_obs, dtype=np.float32).reshape(-1, log_obs[0].shape[-1]),
@@ -90,8 +90,8 @@ def run_episode(seed, env, policy, **kwargs):
         next_observations=np.array(log_next_obs, dtype=np.float32).reshape(-1, log_obs[0].shape[-1]),
         rewards=np.array(log_rewards, dtype=np.float32).reshape(-1, 1),
         terminals=np.array(log_terminals, dtype=np.float32).reshape(-1, 1)            
-    )            
-    
+    )      
+        
     return sequence_data_dict
 
 
@@ -155,8 +155,8 @@ def collect_sample(env, policy, sample_size, **kwargs):
     )        
     for traj in dict_data:
         for k, v in traj.items():
-            memory_dict['trajectories'][k].append(v)        
-        
+            memory_dict['trajectories'][k].append(v)     
+            
     # get the file name and path
     filepath = kwargs.get("filepath", "./") 
     filename = kwargs.get("filename", "training_sample")
