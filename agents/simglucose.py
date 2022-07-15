@@ -350,7 +350,7 @@ def condense_state(state, horizon=80, condense_state_type="default", **kwargs):
         bg_intervals = state[:, list(range(0, horizon, 10)) + [horizon - 1], 0].reshape(-1, 9)  
         mob = np.sum(state[:, :, 1] * np.arange(horizon)/(horizon - 1), axis=1).reshape(-1, 1)
         iob = np.sum(state[:, :, 2] * np.arange(horizon)/(horizon - 1), axis=1).reshape(-1, 1)
-        current_time = state[:, -1, -1].reshape(-1, 1)
+        current_time = state[:, 0, -1].reshape(-1, 1)
         trans_state = np.concatenate([bg_intervals, mob, iob, current_time], axis=1)
     
     # convert to: (season and trend data for bg, insulin, meals + time) 
