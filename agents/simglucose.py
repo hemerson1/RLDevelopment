@@ -181,7 +181,7 @@ def simglucose_class_wrapper(env, **kwargs):
         # Modify the outputs ------------------------------
         
         reward = magni_reward(blood_glucose)
-        current_time = env.env.time_hist[-1]
+        current_time = env.env.time_hist[-1]        
         time_in_mins = ((current_time.hour * 60) + current_time.minute)        
         state = np.array([blood_glucose[0], current_meal, insulin_dose, time_in_mins], dtype=float)   
                 
@@ -348,8 +348,8 @@ def condense_state(state, horizon=80, condense_state_type="default", **kwargs):
     # convert to: (30-min bg over 4hrs, mob, iob, time)
     if condense_state_type == "default":
         bg_intervals = state[:, list(range(0, horizon, 10)) + [horizon - 1], 0].reshape(-1, 9)  
-        mob = np.sum(state[:, :, 1] * np.arange(horizon)/(horizon - 1), axis=1).reshape(-1, 1)
-        iob = np.sum(state[:, :, 2] * np.arange(horizon)/(horizon - 1), axis=1).reshape(-1, 1)
+        mob = np.sum(state[:, :, 1] * np.flip(np.arange(horizon)/(horizon - 1)), axis=1).reshape(-1, 1)
+        iob = np.sum(state[:, :, 2] * np.flip(np.arange(horizon)/(horizon - 1)), axis=1).reshape(-1, 1)
         current_time = state[:, 0, -1].reshape(-1, 1)
         trans_state = np.concatenate([bg_intervals, mob, iob, current_time], axis=1)
     

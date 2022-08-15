@@ -51,7 +51,7 @@ def run_episode(seed, env, policy, **kwargs):
         else: action = action_output
         
         # step the environment
-        next_state, reward, done, _ = env.step(action)  
+        next_state, reward, done, _ = env.step(action) 
         
         # add a termination penalty
         if done and timestep != kwargs.get("max_timestep", -1):
