@@ -209,14 +209,32 @@ def unpack_dataset(dataset, **kwargs):
     data["actions"] = np.array(data["actions"], dtype=np.float32).reshape(-1, action_dim)
     data["rewards"] = np.array(data["rewards"], dtype=np.float32).reshape(-1, 1)
     data["terminals"] = np.array(data["terminals"], dtype=np.float32).reshape(-1, 1)
-    
+        
     # calculate the means and std
     stats = {
         "obs_mean": data["observations"].mean(axis=0), 
         "obs_std": data["observations"].std(axis=0), 
         "action_mean": data["actions"].mean(axis=0), 
         "action_std": data["actions"].std(axis=0), 
+        "reward_mean": data["rewards"].mean(axis=0),
+        "reward_std": data["rewards"].std(axis=0),        
+
+        "obs_max": data["observations"].max(axis=0), 
+        "obs_min": data["observations"].min(axis=0),
+        "action_max": data["actions"].max(axis=0), 
+        "action_min": data["actions"].min(axis=0), 
+        "reward_max": data["rewards"].max(axis=0),
+        "reward_min": data["rewards"].min(axis=0),        
     }
+    
+    # log additional inputs
+    if "sequence_end" in list(data.keys()): 
+        data["sequence_end"] = np.array(data["sequence_end"], dtype=np.float32).reshape(-1, 1)
+    if "rewards_to_go" in list(data.keys()): 
+        data["rewards_to_go"] = np.array(data["rewards_to_go"], dtype=np.float32).reshape(-1, 1)   
+    if "timesteps" in list(data.keys()): 
+        data["timesteps"] = np.array(data["timesteps"], dtype=np.float32).reshape(-1, 1) 
+        stats["timestep_max"] = data["timesteps"].max()
     
     return data, stats
 
@@ -227,6 +245,7 @@ def norm_dataset(data, stats):
     data["observations"] = (data["observations"] - stats["obs_mean"])/stats["obs_std"]
     data["next_observations"] = (data["next_observations"] - stats["obs_mean"])/stats["obs_std"]
     data["actions"] = (data["actions"] - stats["action_mean"])/stats["action_std"]
+    data["rewards"] = (data["rewards"] - stats["reward_mean"])/stats["reward_std"]    
     return data   
 
 
