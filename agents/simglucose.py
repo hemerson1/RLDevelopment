@@ -342,9 +342,13 @@ all the important information.
 """
 def condense_state(state, horizon=80, condense_state_type="default", **kwargs):
     
-    # extract the relevant metrics
-    state = state.reshape(-1, horizon, 4)       
+    use_weight = kwargs.get("use_weight", False)
     
+    # extract the relevant metrics
+    num_dims = 4
+    if use_weight: num_dims += 1
+    state = state.reshape(-1, horizon, num_dims)
+        
     # convert to: (30-min bg over 4hrs, mob, iob, time)
     if condense_state_type == "default":        
         bg_intervals = state[:, list(range(0, horizon, horizon//8)) + [horizon - 1], 0].reshape(-1, 9)  
@@ -352,6 +356,10 @@ def condense_state(state, horizon=80, condense_state_type="default", **kwargs):
         iob = np.sum(state[:, :, 2] * np.flip(np.arange(horizon)/(horizon - 1)), axis=1).reshape(-1, 1)
         current_time = state[:, 0, -1].reshape(-1, 1)
         trans_state = np.concatenate([bg_intervals, mob, iob, current_time], axis=1)
+        
+        if use_weight:
+            current_weight = state[:, 0, -2].reshape(-1, 1)
+            trans_state = np.concatenate([bg_intervals, mob, iob, current_weight, current_time], axis=1)
     
     # convert to: (season and trend data for bg, insulin, meals + time) 
     elif condense_state_type == "time_series_decomp": 
