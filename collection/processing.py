@@ -215,13 +215,16 @@ def unpack_dataset(dataset, **kwargs):
         "obs_mean": data["observations"].mean(axis=0), 
         "obs_std": data["observations"].std(axis=0), 
         
-        #####################
-        # Changed to median
-        #####################
+        #######################
+        # CHANGED BACK TO MEAN
+        #######################
         
-        "action_mean": np.median(data["actions"], axis=0), # data["actions"].mean(axis=0), 
-        "action_std": np.median(np.absolute(data["actions"] - np.median(data["actions"], axis=0)), axis=0),  # data["actions"].std(axis=0), 
+        "action_mean": data["actions"].mean(axis=0), 
+        "action_std": data["actions"].std(axis=0), 
                 
+        "action_median": np.median(data["actions"], axis=0),
+        "action_mad": np.median(np.absolute(data["actions"] - np.median(data["actions"], axis=0)), axis=0),
+        
         "reward_mean": data["rewards"].mean(axis=0),
         "reward_std": data["rewards"].std(axis=0),        
 

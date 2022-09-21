@@ -322,9 +322,6 @@ def glucose_metrics(logs, window=480):
 
     plt.show()
     
-#########################################################
-# TODO: check conversion to numpy doesn't affect results
-#########################################################
     
 """
 Use the Magni risk function to calculate the reward for 
@@ -343,13 +340,15 @@ all the important information.
 def condense_state(state, horizon=80, condense_state_type="default", **kwargs):
     
     use_weight = kwargs.get("use_weight", False)
+    tsd_size = kwargs.get("tsd_size", 12)
+    dia = kwargs.get("dia", 3)
     
     # extract the relevant metrics
     num_dims = 4
     if use_weight: num_dims += 1
     state = state.reshape(-1, horizon, num_dims)
         
-    # convert to: (30-min bg over 4hrs, mob, iob, time)
+    # convert to: (30-min bg over 4hrs, mob, iob, (+weight) time)
     if condense_state_type == "default":        
         bg_intervals = state[:, list(range(0, horizon, horizon//8)) + [horizon - 1], 0].reshape(-1, 9)  
         mob = np.sum(state[:, :, 1] * np.flip(np.arange(horizon)/(horizon - 1)), axis=1).reshape(-1, 1)
@@ -364,7 +363,29 @@ def condense_state(state, horizon=80, condense_state_type="default", **kwargs):
     # convert to: (season and trend data for bg, insulin, meals + time) 
     elif condense_state_type == "time_series_decomp": 
         trans_state = time_series_decomp(state, **kwargs)  
-    
+        
+    elif condense_state_type == "modified":
+        
+        # get bg changes
+        curr_bg = state[:, 0, 0].reshape(-1, 1)        
+        short_bg = state[:, 3, 0].reshape(-1, 1)
+        long_bg = state[:, 9, 0].reshape(-1, 1)
+        
+        # get iob and mob
+        max_dur, peak_dur = dia*60/5, dia*60*(75/180)/5
+        mob_mult = np.concatenate([np.arange(0, 1, (1/4)), np.arange(1, 0, -(1/(48-4)))])           
+        mob = np.sum(state[:, :, 1] * mob_mult, axis=1).reshape(-1, 1)
+        iob_mult = np.concatenate([np.arange(0, 1, (1/peak_dur)), np.arange(1, 0, -(1/(max_dur-peak_dur)))])         
+        iob = np.sum(state[:, :, 2] * iob_mult, axis=1).reshape(-1, 1)
+        
+        # combine the elements
+        current_time = state[:, 0, -1].reshape(-1, 1)
+        trans_state = np.concatenate([curr_bg, short_bg, long_bg, mob, iob, current_time], axis=1)
+        
+        if use_weight:
+            current_weight = state[:, 0, -2].reshape(-1, 1)
+            trans_state = np.concatenate([curr_bg, short_bg, long_bg, mob, iob, current_weight, current_time], axis=1)
+        
     # get the mean and standard deviation
     stats = [np.mean(trans_state, axis=0), np.std(trans_state, axis=0)]
     
