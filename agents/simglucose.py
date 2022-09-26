@@ -340,7 +340,6 @@ all the important information.
 def condense_state(state, horizon=80, condense_state_type="default", **kwargs):
     
     use_weight = kwargs.get("use_weight", False)
-    tsd_size = kwargs.get("tsd_size", 12)
     dia = kwargs.get("dia", 3)
     
     # extract the relevant metrics
@@ -371,11 +370,17 @@ def condense_state(state, horizon=80, condense_state_type="default", **kwargs):
         short_bg = state[:, 3, 0].reshape(-1, 1)
         long_bg = state[:, 9, 0].reshape(-1, 1)
         
-        # get iob and mob
+        # get iob (full duration is dia hrs) and mob (peak after 4 minutes)
         max_dur, peak_dur = dia*60/5, dia*60*(75/180)/5
-        mob_mult = np.concatenate([np.arange(0, 1, (1/4)), np.arange(1, 0, -(1/(48-4)))])           
-        mob = np.sum(state[:, :, 1] * mob_mult, axis=1).reshape(-1, 1)
-        iob_mult = np.concatenate([np.arange(0, 1, (1/peak_dur)), np.arange(1, 0, -(1/(max_dur-peak_dur)))])         
+        mob_mult = np.concatenate([np.arange(0, 1, (1/4)), np.arange(1, 0, -(1/(horizon-4)))])           
+        iob_mult = np.concatenate([np.arange(0, 1, (1/peak_dur)), np.arange(1, 0, -(1/(max_dur-peak_dur)))]) 
+        
+        # correct shape of iob multiplier
+        if len(iob_mult) < horizon: iob_mult = np.concatenate([iob_mult, np.zeros(horizon - len(iob_mult))])
+        elif len(iob_mult) > horizon: iob_mult = iob_mult[:, :horizon, :]
+        
+        # get iob and mob
+        mob = np.sum(state[:, :, 1] * mob_mult, axis=1).reshape(-1, 1)        
         iob = np.sum(state[:, :, 2] * iob_mult, axis=1).reshape(-1, 1)
         
         # combine the elements
@@ -385,6 +390,21 @@ def condense_state(state, horizon=80, condense_state_type="default", **kwargs):
         if use_weight:
             current_weight = state[:, 0, -2].reshape(-1, 1)
             trans_state = np.concatenate([curr_bg, short_bg, long_bg, mob, iob, current_weight, current_time], axis=1)
+            
+            
+    elif condense_state_type == "ratio":
+        bg_intervals = state[:, list(range(0, horizon, horizon//8)) + [horizon - 1], 0].reshape(-1, 9)  
+        mob = np.sum(state[:, :, 1] * np.flip(np.arange(horizon)/(horizon - 1)), axis=1).reshape(-1, 1)
+        iob = np.sum(state[:, :, 2] * np.flip(np.arange(horizon)/(horizon - 1)), axis=1).reshape(-1, 1)
+        current_time = state[:, 0, -1].reshape(-1, 1)
+        
+        im_ratio = iob/(mob + 1e-6)
+        
+        trans_state = np.concatenate([bg_intervals, mob, iob, im_ratio, current_time], axis=1)
+        
+        if use_weight:
+            current_weight = state[:, 0, -2].reshape(-1, 1)
+            trans_state = np.concatenate([bg_intervals, mob, iob, im_ratio, current_weight, current_time], axis=1)
         
     # get the mean and standard deviation
     stats = [np.mean(trans_state, axis=0), np.std(trans_state, axis=0)]

@@ -200,6 +200,10 @@ def create_split(data, split):
 Convert the dataset to the appropriate form.
 """
 def unpack_dataset(dataset, **kwargs):
+    
+    # set normalisation stats
+    use_median_action = kwargs.get("use_median_action", False)
+    use_mad_action = kwargs.get("use_mad_action", False)
         
     # reshape the input  
     data = dataset["trajectories"]
@@ -214,10 +218,6 @@ def unpack_dataset(dataset, **kwargs):
     stats = {
         "obs_mean": data["observations"].mean(axis=0), 
         "obs_std": data["observations"].std(axis=0), 
-        
-        #######################
-        # CHANGED BACK TO MEAN
-        #######################
         
         "action_mean": data["actions"].mean(axis=0), 
         "action_std": data["actions"].std(axis=0), 
@@ -245,15 +245,18 @@ def unpack_dataset(dataset, **kwargs):
         data["timesteps"] = np.array(data["timesteps"], dtype=np.float32).reshape(-1, 1) 
         stats["timestep_max"] = data["timesteps"].max()
     
+    # set action mean and std
+    if use_median_action: stats["action_mean"] = stats["action_median"]
+    if use_mad_action: stats["action_std"] = stats["action_mad"]
+    
     return data, stats
 
 """
 Norm the state and action space.
 """
-def norm_dataset(data, stats):
+def norm_dataset(data, stats):    
     data["observations"] = (data["observations"] - stats["obs_mean"])/stats["obs_std"]
     data["next_observations"] = (data["next_observations"] - stats["obs_mean"])/stats["obs_std"]
-    data["actions"] = (data["actions"] - stats["action_mean"])/stats["action_std"]
     data["rewards"] = (data["rewards"] - stats["reward_mean"])/stats["reward_std"]    
     return data   
 
