@@ -348,10 +348,39 @@ def condense_state(state, horizon=80, condense_state_type="default", **kwargs):
     state = state.reshape(-1, horizon, num_dims)
         
     # convert to: (30-min bg over 4hrs, mob, iob, (+weight) time)
-    if condense_state_type == "default":        
-        bg_intervals = state[:, list(range(0, horizon, horizon//8)) + [horizon - 1], 0].reshape(-1, 9)  
+    if condense_state_type == "default":   
+        
+        num_ints = 8
+        bg_intervals = state[:, list(range(0, horizon, horizon//num_ints)) + [horizon - 1], 0].reshape(-1, num_ints+1)  
         mob = np.sum(state[:, :, 1] * np.flip(np.arange(horizon)/(horizon - 1)), axis=1).reshape(-1, 1)
         iob = np.sum(state[:, :, 2] * np.flip(np.arange(horizon)/(horizon - 1)), axis=1).reshape(-1, 1)
+        
+        # get iob (full duration is dia hrs) and mob (peak after 4 minutes)
+        max_dur, peak_dur = dia*60/5, dia*60*(75/180)/5
+        mob_mult = np.concatenate([np.arange(0, 1, (1/4)), np.arange(1, 0, -(1/(horizon-4)))])           
+        iob_mult = np.concatenate([np.arange(0, 1, (1/peak_dur)), np.arange(1, 0, -(1/(max_dur-peak_dur)))]) 
+        
+        # correct shape of iob multiplier
+        if len(iob_mult) < horizon: iob_mult = np.concatenate([iob_mult, np.zeros(horizon - len(iob_mult))])
+        elif len(iob_mult) > horizon: iob_mult = iob_mult[:, :horizon, :]
+        
+        # get iob and mob
+        
+        mob = np.sum(state[:, :, 1] * mob_mult, axis=1).reshape(-1, 1)     
+        
+        
+        # EDITED: #####################################################
+        max_dur, peak_dur = 4*60/5, 4*60*(75/180)/5
+        mob_mult = np.concatenate([np.arange(0, 1, (1/peak_dur)), np.arange(1, 0, -(1/(max_dur-peak_dur)))]) 
+        
+        if len(mob_mult) < horizon: mob_mult = np.concatenate([mob_mult, np.zeros(horizon - len(iob_mult))])
+        elif len(mob_mult) > horizon: mob_mult = mob_mult[:, :horizon, :]
+                
+        mob = np.sum(state[:, :, 1] * mob_mult, axis=1).reshape(-1, 1)  
+        ###############################################################
+        
+        iob = np.sum(state[:, :, 2] * iob_mult, axis=1).reshape(-1, 1)
+        
         current_time = state[:, 0, -1].reshape(-1, 1)
         trans_state = np.concatenate([bg_intervals, mob, iob, current_time], axis=1)
         

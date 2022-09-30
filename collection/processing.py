@@ -204,6 +204,8 @@ def unpack_dataset(dataset, **kwargs):
     # set normalisation stats
     use_median_action = kwargs.get("use_median_action", False)
     use_mad_action = kwargs.get("use_mad_action", False)
+    use_median_obs = kwargs.get("use_median_obs", False)
+    use_mad_obs = kwargs.get("use_mad_obs", False)
         
     # reshape the input  
     data = dataset["trajectories"]
@@ -218,6 +220,9 @@ def unpack_dataset(dataset, **kwargs):
     stats = {
         "obs_mean": data["observations"].mean(axis=0), 
         "obs_std": data["observations"].std(axis=0), 
+        
+        "obs_median": np.median(data["observations"], axis=0),
+        "obs_mad": np.median(np.absolute(data["observations"] - np.median(data["observations"], axis=0)), axis=0),
         
         "action_mean": data["actions"].mean(axis=0), 
         "action_std": data["actions"].std(axis=0), 
@@ -248,6 +253,10 @@ def unpack_dataset(dataset, **kwargs):
     # set action mean and std
     if use_median_action: stats["action_mean"] = stats["action_median"]
     if use_mad_action: stats["action_std"] = stats["action_mad"]
+    
+    # set obs mean and std
+    if use_median_obs: stats["obs_mean"] = stats["obs_median"]
+    if use_mad_obs: stats["obs_std"] = stats["obs_mad"]
     
     return data, stats
 
