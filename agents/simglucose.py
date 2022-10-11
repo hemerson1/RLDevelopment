@@ -339,12 +339,19 @@ all the important information.
 """
 def condense_state(state, horizon=80, condense_state_type="default", **kwargs):
     
+    # params
     dia = kwargs.get("dia", 3)
+    time_interval = 5
     
     # extract the relevant metrics
     num_dims = 5
     state = state.reshape(-1, horizon, num_dims)
-        
+    
+    # check that time is running in the correct direction
+    past_time = (state[:, 0, -1] - (horizon-1)*time_interval/1440)%1    
+    wrong_input_msg = "State input should go from latest to earliest time."  
+    assert math.isclose(state[0, -1, -1], past_time[0], abs_tol=1e-3), wrong_input_msg  
+    
     # convert to: (30-min bg over 4hrs, mob, iob, (+weight) time)
     if condense_state_type == "default":   
         
@@ -371,8 +378,8 @@ def condense_state(state, horizon=80, condense_state_type="default", **kwargs):
         current_weight = state[:, 0, -2].reshape(-1, 1)
         
         # combine to create the state
-        trans_state = np.concatenate([bg_intervals, mob, iob, current_weight, current_time], axis=1)
-            
+        trans_state = np.concatenate([bg_intervals, mob, iob, current_weight, current_time], axis=1)      
+                
     # get the mean and standard deviation
     stats = [np.mean(trans_state, axis=0), np.std(trans_state, axis=0)]
     
