@@ -206,17 +206,13 @@ def unpack_dataset(dataset, **kwargs):
     use_mad_action = kwargs.get("use_mad_action", False)
     use_median_obs = kwargs.get("use_median_obs", False)
     use_mad_obs = kwargs.get("use_mad_obs", False)
-        
-    # reshape the input  
-    data = dataset["trajectories"]
-    state_dim, action_dim = np.array(data["observations"]).shape[-1], np.array(data["actions"]).shape[-1]
-    data["observations"] = np.array(data["observations"], dtype=np.float32).reshape(-1, state_dim)
-    data["next_observations"] = np.array(data["next_observations"], dtype=np.float32).reshape(-1, state_dim)
-    data["actions"] = np.array(data["actions"], dtype=np.float32).reshape(-1, action_dim)
-    data["rewards"] = np.array(data["rewards"], dtype=np.float32).reshape(-1, 1)
-    data["terminals"] = np.array(data["terminals"], dtype=np.float32).reshape(-1, 1)
-        
+    
+    ###########################################
+    # TODO: make compatible with 3 dim states
+    ########################################### 
+
     # calculate the means and std
+    data = dataset["trajectories"]    
     stats = {
         "obs_mean": data["observations"].mean(axis=0), 
         "obs_std": data["observations"].std(axis=0), 
