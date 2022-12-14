@@ -207,34 +207,35 @@ def unpack_dataset(dataset, **kwargs):
     use_median_obs = kwargs.get("use_median_obs", False)
     use_mad_obs = kwargs.get("use_mad_obs", False)
     
-    ###########################################
-    # TODO: make compatible with 3 dim states
-    ########################################### 
+    # get a shortcut
+    data = dataset["trajectories"]  
+    
+    # get dimensions
+    stats_axes = (0,)
+    if len(data["observations"].shape) == 3:
+        stats_axes += (1,)    
 
-    # calculate the means and std
-    data = dataset["trajectories"]    
+    # calculate the means and std  
     stats = {
-        "obs_mean": data["observations"].mean(axis=0), 
-        "obs_std": data["observations"].std(axis=0), 
+        "obs_mean": data["observations"].mean(axis=stats_axes), 
+        "obs_std": data["observations"].std(axis=stats_axes),         
+        "obs_median": np.median(data["observations"], axis=stats_axes),
+        "obs_mad": np.median(np.absolute(data["observations"] - np.median(data["observations"], axis=stats_axes)), axis=stats_axes),
         
-        "obs_median": np.median(data["observations"], axis=0),
-        "obs_mad": np.median(np.absolute(data["observations"] - np.median(data["observations"], axis=0)), axis=0),
+        "action_mean": data["actions"].mean(axis=stats_axes), 
+        "action_std": data["actions"].std(axis=stats_axes),                 
+        "action_median": np.median(data["actions"], axis=stats_axes),
+        "action_mad": np.median(np.absolute(data["actions"] - np.median(data["actions"], axis=stats_axes)), axis=stats_axes),
         
-        "action_mean": data["actions"].mean(axis=0), 
-        "action_std": data["actions"].std(axis=0), 
-                
-        "action_median": np.median(data["actions"], axis=0),
-        "action_mad": np.median(np.absolute(data["actions"] - np.median(data["actions"], axis=0)), axis=0),
-        
-        "reward_mean": data["rewards"].mean(axis=0),
-        "reward_std": data["rewards"].std(axis=0),        
+        "reward_mean": data["rewards"].mean(axis=stats_axes),
+        "reward_std": data["rewards"].std(axis=stats_axes),        
 
-        "obs_max": data["observations"].max(axis=0), 
-        "obs_min": data["observations"].min(axis=0),
-        "action_max": data["actions"].max(axis=0), 
-        "action_min": data["actions"].min(axis=0), 
-        "reward_max": data["rewards"].max(axis=0),
-        "reward_min": data["rewards"].min(axis=0),        
+        "obs_max": data["observations"].max(axis=stats_axes), 
+        "obs_min": data["observations"].min(axis=stats_axes),
+        "action_max": data["actions"].max(axis=stats_axes), 
+        "action_min": data["actions"].min(axis=stats_axes), 
+        "reward_max": data["rewards"].max(axis=stats_axes),
+        "reward_min": data["rewards"].min(axis=stats_axes),        
     }
     
     # log additional inputs
@@ -259,10 +260,17 @@ def unpack_dataset(dataset, **kwargs):
 """
 Norm the state and action space.
 """
-def norm_dataset(data, stats):    
+def norm_dataset(data, stats, norm_reward=False):    
+    
+    # normalise the observations and actions
     data["observations"] = (data["observations"] - stats["obs_mean"])/stats["obs_std"]
     data["next_observations"] = (data["next_observations"] - stats["obs_mean"])/stats["obs_std"]
-    data["rewards"] = (data["rewards"] - stats["reward_mean"])/stats["reward_std"]    
+    data["actions"] = (data["actions"] - stats["action_mean"])/stats["action_std"]
+    
+    # normalise the reward
+    if norm_reward:
+        data["rewards"] = (data["rewards"] - stats["reward_mean"])/stats["reward_std"]    
+    
     return data   
 
 

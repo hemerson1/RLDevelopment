@@ -347,10 +347,15 @@ def condense_state(state, horizon=80, condense_state_type="default", **kwargs):
     num_dims = 5
     state = state.reshape(-1, horizon, num_dims)
     
+    """
+    TODO: Added a check after 1 hour, this will not 
+    always be horizon/4 -> correct this
+    """
+    
     # check that time is running in the correct direction and continuous
-    past_time = np.float16((state[:, 0, -1] - (horizon-1)*time_interval/1440)) % 1.0 
-    wrong_input_msg = "State input should go from latest to earliest time."        
-    assert np.all(np.isclose(state[:, -1, -1], past_time, atol=1e-3)), wrong_input_msg  
+    past_time = (state[:, 0, -1] - (horizon//4)*time_interval/1440) % 1.0     
+    wrong_input_msg = "State input should go from latest to earliest time."           
+    assert np.all(np.isclose(state[:, horizon//4, -1], past_time, atol=1e-3)), wrong_input_msg  
     
     # convert to: (30-min bg over 4hrs, mob, iob, (+weight) time)
     if condense_state_type == "default":   
